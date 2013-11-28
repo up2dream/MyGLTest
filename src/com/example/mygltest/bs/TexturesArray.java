@@ -11,7 +11,7 @@ public class TexturesArray {
 	}
 	
 	public boolean isEmpty() {
-		return mCount != 0;
+		return mCount == 0;
 	}
 	
 	public int count() {
@@ -24,6 +24,7 @@ public class TexturesArray {
 	
 	public void clear() {
 		mCount = 0;
+		mTextures.clear();
 	}
 	
 	public int[] buffer() {

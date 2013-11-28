@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.pm.ConfigurationInfo;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -13,6 +14,7 @@ import cn.wps.moffice.presentation.sal.drawing.Point;
 
 import com.example.mygltest.bs.BSGLRenderer;
 import com.example.mygltest.bs.BSGLSurfaceView;
+import com.example.mygltest.bs.SimpleDataSource;
 
 public class MainActivity extends Activity {
 
@@ -37,6 +39,7 @@ public class MainActivity extends Activity {
 	    final boolean supportsEs2 = false;//configurationInfo.reqGlEsVersion >= 0x20000;
 	 
 	    mRenderer = new BSGLRenderer(mGLSurfaceView);
+	    mRenderer.setDS(new SimpleDataSource());
 	    
 	    if (supportsEs2) {
 	        // Request an OpenGL ES 2.0 compatible context.
@@ -80,15 +83,20 @@ public class MainActivity extends Activity {
 		return true;
 	}
 	
+	private float scale = 1f;
 	@Override
 	public boolean onMenuItemSelected(int featureId, MenuItem item) {
 		switch (item.getItemId()) {
 		case R.id.draw_on_layer_0:
 			mGLSurfaceView.requestRender();
 			return true;
-		case R.id.draw_on_layer_1:
+		case R.id.zoom_out:
+			scale -= .2f;
+			mRenderer.mouseZoom(scale, new Point(mGLSurfaceView.getWidth()/2, mGLSurfaceView.getHeight()/2));
 			return true;
-		case R.id.reorder_layer_0_and_layer_1:
+		case R.id.zoom_in:
+			scale += .2f;
+			mRenderer.mouseZoom(scale, new Point(mGLSurfaceView.getWidth()/2, mGLSurfaceView.getHeight()/2));
 			return true;
 		default:
 			return super.onMenuItemSelected(featureId, item);

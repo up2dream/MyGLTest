@@ -7,16 +7,16 @@
         android:title="Draw On Layer 0"/>
     
     <item
-        android:id="@+id/draw_on_layer_1"
+        android:id="@+id/zoom_out"
         android:orderInCategory="100"
         android:showAsAction="never"
-        android:title="Draw On Layer 1"/>
+        android:title="Zoom Out"/>
     
     <item
-        android:id="@+id/reorder_layer_0_and_layer_1"
+        android:id="@+id/zoom_in"
         android:orderInCategory="100"
         android:showAsAction="never"
-        android:title="Reorder Layer 0 and Layer 1"/>
+        android:title="Zoom In"/>
     
     <item
         android:id="@+id/action_settings"

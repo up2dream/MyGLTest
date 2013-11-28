@@ -42,13 +42,16 @@ public class BSGLRenderer implements Renderer {
 	private static final float MinZoom = 0.2f;
 	private static final float MaxZoom = 20f;
 	
-	private Timer m_updateTimer = new Timer("bs_update_timer");
-	private Timer m_refreshTimer = new Timer("bs_refresh_timer");
+	private Timer mUpdateTimer;
+	private Timer mRefreshTimer;
+	private UpdateTimerTask mUpdateTimerTask = new UpdateTimerTask();
+	private RefreshTimerTask mRefreshTimerTask = new RefreshTimerTask();
 
 	public PointF m_viewOffset;
 	private float m_viewZoomFactor;
 	private SVG m_svg;
 	private Picture m_pic;
+	private DataSource mDS;
 
 	private int m_defaultTexture;
 	private TextureBuffer m_mainBuffer;
@@ -57,11 +60,15 @@ public class BSGLRenderer implements Renderer {
 	private BSGLSurfaceView mView;
 	private GL11 mGL;
 	private Size mSize = new Size();
-	private boolean mNeedUpdate = false;
+	private boolean mNeedBindTexture = false;
 	
 	private Square square1 = new Square();
 	private Square square2 = new Square();
 	private Triangle triangle = new Triangle();
+
+	private Bitmap mContent = Bitmap.createBitmap(TextureBuffer.TILE_DIM, TextureBuffer.TILE_DIM, Config.ARGB_8888);
+	private int mUpdateX;
+	private int mUpdateY;
     
 	/** Constructor to set the handed over context */
 	public BSGLRenderer(BSGLSurfaceView view) {
@@ -76,26 +83,44 @@ public class BSGLRenderer implements Renderer {
 	}
 	
 	public void scheduleUpdate() {
-		m_updateTimer.schedule(new TimerTask() {
-			
+		killUpdateTimer();
+		if (mUpdateTimer==null)
+		mUpdateTimer = new Timer("bs_update_timer");
+		Log.d("bs", "scheduleUpdate");
+		mUpdateTimer.schedule(new TimerTask() {
 			@Override
 			public void run() {
-//				updateBackingStore();
-				mNeedUpdate = true;
-				update();
+				updateBackingStore();
 			}
 		}, UPDATE_DELAY);
 	}
 
-	public void scheduleRefresh()
-	{
-	    m_refreshTimer.schedule(new TimerTask() {
+	public void scheduleRefresh() {
+		killRefreshTimer();
+		if (mRefreshTimer==null)
+		mRefreshTimer = new Timer("bs_refresh_timer");
+		
+	    mRefreshTimer.schedule(new TimerTask() {
 			
 			@Override
 			public void run() {
 				refreshBackingStore();
 			}
 		}, REFRESH_DELAY);
+	}
+	
+	private void killUpdateTimer() {
+//		if (mUpdateTimer != null) {
+//			mUpdateTimer.cancel();
+//			mUpdateTimer = null;
+//		}
+	}
+	
+	public void killRefreshTimer() {
+//		if (mRefreshTimer != null) {
+//			mRefreshTimer.cancel();
+//			mRefreshTimer = null;
+//		}
 	}
 	
 	public void refreshBackingStore()
@@ -108,8 +133,8 @@ public class BSGLRenderer implements Renderer {
 	    m_secondaryBuffer = m_mainBuffer;
 
 	    // Replace the primary textures with an invalid, dirty texture.
-	    float width = 30000/*m_pic.getWidth()*/ * m_viewZoomFactor;
-	    float height = 20000/*m_pic.getHeight()*/ * m_viewZoomFactor;
+	    float width = mDS.getWidth() * m_viewZoomFactor;
+	    float height = mDS.getHeight() * m_viewZoomFactor;
 	    int horizontal = (int) ((width + TextureBuffer.TILE_DIM - 1) / TextureBuffer.TILE_DIM);
 	    int vertical = (int) ((height + TextureBuffer.TILE_DIM - 1) / TextureBuffer.TILE_DIM);
 	    m_mainBuffer.resize(horizontal, vertical);
@@ -117,16 +142,16 @@ public class BSGLRenderer implements Renderer {
 	    m_mainBuffer.mZoomFactor = m_viewZoomFactor;
 	    scheduleUpdate();
 
-//	    killTimer(m_refreshTimer); ?
-//	    m_refreshTimer = 0;
+	    killRefreshTimer();
 	}
 	
 	public void updateBackingStore()
 	{
+		Log.d("BS", "uping");
 	    // During zooming in and out, do not bother.
 	    if (m_mainBuffer.mZoomFactor != m_viewZoomFactor)
 	        return;
-
+	    Log.d("BS", "uping2");
 	    // Extend the update range with extra tiles in every direction, this is
 	    // to anticipate panning and scrolling.
 	    Rect updateRange = m_mainBuffer.visibleRange(m_viewOffset, m_viewZoomFactor, mSize);
@@ -155,38 +180,41 @@ public class BSGLRenderer implements Renderer {
 	            float cy = m_viewOffset.getY() + dim * (0.5f + ty);
 	            float dist = Math.abs(cx - mSize.getWidth() / 2) + Math.abs(cy - mSize.getHeight() / 2);
 	            if (dist < closestDistance) {
-	                updateX = tx;
-	                updateY = ty;
+	            	updateX = tx;
+	            	updateY = ty;
 	                closestDistance = dist;
 	            }
 	        }
 
-	        // Update the closest tile and bind as texture.
-	        Bitmap content = Bitmap.createBitmap(TextureBuffer.TILE_DIM, TextureBuffer.TILE_DIM, Config.ARGB_8888);
-	        Canvas canvas = new Canvas(content);
-	        canvas.drawColor(Color.rgb(255, 255, 0));
-	        Paint p = new Paint();
-//	        p.setAntiAlias(true);
-//	        canvas.translate(-updateX * TextureBuffer.TileDim, -updateY * TextureBuffer.TileDim);
-//	        canvas.scale(m_mainBuffer.zoomFactor, m_mainBuffer.zoomFactor);
-//	        android.graphics.Rect destRt = new android.graphics.Rect();
-//	        destRt.set(0, 0, m_pic.getWidth(), m_pic.getHeight());
-//	        canvas.drawPicture(m_pic, destRt);
-	        
-	        if (DEBUG) {
-	        	p.setColor(Color.rgb(0, 0, 0));
-	        	p.setStyle(Style.STROKE);
-	        	canvas.drawRect(3, 3, TextureBuffer.TILE_DIM - 6, TextureBuffer.TILE_DIM - 6, p);
-	        	canvas.drawText(updateX + ", " + updateY, 4, 16, p);
-	        }
-	        m_mainBuffer.replace(updateX, updateY, bindTexture(content));
-	        content.recycle();
-	        
-	        update();
-	    }
+	        Log.d("BS", "uping3");
+	        Log.d("BS", "Update " + updateX + ", " + updateY);
+//	        if (!mNeedUpdate){
+		        mUpdateX = updateX;
+		        mUpdateY = updateY;
+		        // Update the closest tile and bind as texture.dd
+		        Canvas canvas = new Canvas(mContent);
+		        Paint paint = new Paint();
 
-//	    killTimer(m_updateTimer);?
-//	    m_updateTimer = 0;
+		        if (mDS != null) {
+		        	mDS.draw(canvas, mUpdateX, mUpdateY, paint);
+		        }
+		        
+		        if (DEBUG) {
+		        	paint.setColor(Color.rgb(0, 0, 0));
+		        	paint.setStyle(Style.STROKE);
+		        	canvas.drawRect(3, 3, TextureBuffer.TILE_DIM - 6, TextureBuffer.TILE_DIM - 6, paint);
+		        	canvas.drawText(mUpdateX + ", " + mUpdateY, 4, 16, paint);
+		        }
+		       
+		        mNeedBindTexture = true;
+		        update();
+//	        } else if (mNeedUpdate && (mUpdateX != updateX || mUpdateY != updateY)) {
+//	        	Log.d("BS", "Update WRONG" + mUpdateX + ", " + mUpdateY);
+////	        	throw new RuntimeException("Update WRONG" + mUpdateX + ", " + mUpdateY);
+//	        }
+	    }
+	    Log.d("BS", "uping4");
+	    killUpdateTimer();
 	}
 	
 	public void initializeGL()
@@ -199,6 +227,10 @@ public class BSGLRenderer implements Renderer {
 //	    Drawable drawable = svg.createPictureDrawable();
 	    
 	    refreshBackingStore();
+	}
+	
+	public void setDS(DataSource ds) {
+		mDS = ds;
 	}
 	
 	public void paintGL()
@@ -257,19 +289,21 @@ public class BSGLRenderer implements Renderer {
 	        }
 	    }
 
-	    if (needsUpdate) {
-	        scheduleUpdate();
-	    } else {
-	        // Every tile is up-to-date, thus discard the background.
-	        if (!m_secondaryBuffer.isEmpty()) {
-	            m_secondaryBuffer.clear();
-	            update();
-	        }
+	    if (!mNeedBindTexture) {
+		    if (needsUpdate) {
+		        scheduleUpdate();
+		    } else {
+		        // Every tile is up-to-date, thus discard the background.
+		        if (!m_secondaryBuffer.isEmpty()) {
+		            m_secondaryBuffer.clear();
+		            update();
+		        }
+		    }
+	
+		    // Zooming means we need a fresh set of resolution-correct tiles.
+		    if (m_viewZoomFactor != m_mainBuffer.mZoomFactor)
+		        scheduleRefresh();
 	    }
-
-	    // Zooming means we need a fresh set of resolution-correct tiles.
-	    if (m_viewZoomFactor != m_mainBuffer.mZoomFactor)
-	        scheduleRefresh();
 	}
 	
 	public void resizeGL(int width, int height)
@@ -328,9 +362,8 @@ public class BSGLRenderer implements Renderer {
 	
 	@Override
 	public void onDrawFrame(GL10 gl) {
-		if (mNeedUpdate) {
-			updateBackingStore();
-			mNeedUpdate = false;
+		if (mNeedBindTexture) {
+			m_mainBuffer.replace(mUpdateX, mUpdateY, bindTexture(mContent));
 		}
 		
 		// clear Screen and Depth Buffer
@@ -348,6 +381,9 @@ public class BSGLRenderer implements Renderer {
 //		paintGL();
 //		triangle.draw(gl);
 		
+		if (mNeedBindTexture) {
+			mNeedBindTexture = false;
+		}
 	}
 
 	@Override
@@ -427,4 +463,23 @@ public class BSGLRenderer implements Renderer {
         m_secondaryBuffer.mGL = gl;
         
         initializeGL();
-	}}
+	}
+	
+	public class UpdateTimerTask extends TimerTask {
+
+		@Override
+		public void run() {
+			updateBackingStore();
+		}
+	}	
+	
+	public class RefreshTimerTask extends TimerTask {
+
+		@Override
+		public void run() {
+			refreshBackingStore();
+		}
+	}
+}
+
+	
