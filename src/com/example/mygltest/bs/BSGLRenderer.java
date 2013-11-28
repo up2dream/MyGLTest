@@ -14,7 +14,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
-import android.graphics.Picture;
 import android.opengl.GLSurfaceView.Renderer;
 import android.opengl.GLUtils;
 import android.util.Log;
@@ -23,11 +22,8 @@ import cn.wps.moffice.presentation.sal.drawing.PointF;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
-import com.example.mygltest.R;
 import com.example.mygltest.Square;
 import com.example.mygltest.Triangle;
-import com.larvalabs.svgandroid.SVG;
-import com.larvalabs.svgandroid.SVGParser;
 
 public class BSGLRenderer implements Renderer {
 
@@ -49,8 +45,6 @@ public class BSGLRenderer implements Renderer {
 
 	public PointF m_viewOffset;
 	private float m_viewZoomFactor;
-	private SVG m_svg;
-	private Picture m_pic;
 	private DataSource mDS;
 
 	private int m_defaultTexture;
@@ -220,9 +214,6 @@ public class BSGLRenderer implements Renderer {
 	    mGL.glDisable(GL11.GL_DEPTH_TEST);
 	    mGL.glEnable(GL11.GL_TEXTURE_2D);
 	    m_defaultTexture = bindTexture(TextureBuffer.createCheckerboardPattern(TextureBuffer.TILE_DIM));
-	    SVG svg = SVGParser.getSVGFromResource(mView.getContext().getResources(), R.drawable.android_head);
-	    m_pic = svg.getPicture();
-//	    Drawable drawable = svg.createPictureDrawable();
 	    
 	    refreshBackingStore();
 	}
