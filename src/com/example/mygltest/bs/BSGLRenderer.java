@@ -147,11 +147,10 @@ public class BSGLRenderer implements Renderer {
 	
 	public void updateBackingStore()
 	{
-		Log.d("BS", "uping");
 	    // During zooming in and out, do not bother.
 	    if (m_mainBuffer.mZoomFactor != m_viewZoomFactor)
 	        return;
-	    Log.d("BS", "uping2");
+	    
 	    // Extend the update range with extra tiles in every direction, this is
 	    // to anticipate panning and scrolling.
 	    Rect updateRange = m_mainBuffer.visibleRange(m_viewOffset, m_viewZoomFactor, mSize);
@@ -186,7 +185,6 @@ public class BSGLRenderer implements Renderer {
 	            }
 	        }
 
-	        Log.d("BS", "uping3");
 	        Log.d("BS", "Update " + updateX + ", " + updateY);
 //	        if (!mNeedUpdate){
 		        mUpdateX = updateX;
@@ -213,7 +211,7 @@ public class BSGLRenderer implements Renderer {
 ////	        	throw new RuntimeException("Update WRONG" + mUpdateX + ", " + mUpdateY);
 //	        }
 	    }
-	    Log.d("BS", "uping4");
+	    
 	    killUpdateTimer();
 	}
 	
