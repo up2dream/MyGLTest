@@ -14,7 +14,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
-import android.graphics.Picture;
 import android.opengl.GLSurfaceView.Renderer;
 import android.opengl.GLUtils;
 import android.util.Log;
@@ -23,11 +22,8 @@ import cn.wps.moffice.presentation.sal.drawing.PointF;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
-import com.example.mygltest.R;
 import com.example.mygltest.Square;
 import com.example.mygltest.Triangle;
-import com.larvalabs.svgandroid.SVG;
-import com.larvalabs.svgandroid.SVGParser;
 
 public class BSGLRenderer implements Renderer {
 
@@ -44,13 +40,9 @@ public class BSGLRenderer implements Renderer {
 	
 	private Timer mUpdateTimer;
 	private Timer mRefreshTimer;
-	private UpdateTimerTask mUpdateTimerTask = new UpdateTimerTask();
-	private RefreshTimerTask mRefreshTimerTask = new RefreshTimerTask();
 
 	public PointF m_viewOffset;
 	private float m_viewZoomFactor;
-	private SVG m_svg;
-	private Picture m_pic;
 	private DataSource mDS;
 
 	private int m_defaultTexture;
@@ -85,7 +77,8 @@ public class BSGLRenderer implements Renderer {
 	public void scheduleUpdate() {
 		killUpdateTimer();
 		if (mUpdateTimer==null)
-		mUpdateTimer = new Timer("bs_update_timer");
+			mUpdateTimer = new Timer("bs_update_timer");
+		
 		Log.d("bs", "scheduleUpdate");
 		mUpdateTimer.schedule(new TimerTask() {
 			@Override
@@ -98,7 +91,7 @@ public class BSGLRenderer implements Renderer {
 	public void scheduleRefresh() {
 		killRefreshTimer();
 		if (mRefreshTimer==null)
-		mRefreshTimer = new Timer("bs_refresh_timer");
+			mRefreshTimer = new Timer("bs_refresh_timer");
 		
 	    mRefreshTimer.schedule(new TimerTask() {
 			
@@ -220,9 +213,6 @@ public class BSGLRenderer implements Renderer {
 	    mGL.glDisable(GL11.GL_DEPTH_TEST);
 	    mGL.glEnable(GL11.GL_TEXTURE_2D);
 	    m_defaultTexture = bindTexture(TextureBuffer.createCheckerboardPattern(TextureBuffer.TILE_DIM));
-	    SVG svg = SVGParser.getSVGFromResource(mView.getContext().getResources(), R.drawable.android_head);
-	    m_pic = svg.getPicture();
-//	    Drawable drawable = svg.createPictureDrawable();
 	    
 	    refreshBackingStore();
 	}
@@ -461,22 +451,6 @@ public class BSGLRenderer implements Renderer {
         m_secondaryBuffer.mGL = gl;
         
         initializeGL();
-	}
-	
-	public class UpdateTimerTask extends TimerTask {
-
-		@Override
-		public void run() {
-			updateBackingStore();
-		}
-	}	
-	
-	public class RefreshTimerTask extends TimerTask {
-
-		@Override
-		public void run() {
-			refreshBackingStore();
-		}
 	}
 }
 
