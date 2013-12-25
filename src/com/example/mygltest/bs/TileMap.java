@@ -1,9 +1,10 @@
 package com.example.mygltest.bs;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
-public class TileMap extends HashMap<Coordinate, Tile> {
+
+public class TileMap extends LinkedHashMap<Coordinate, Tile> {
 
 	private static final long serialVersionUID = -5730576144176541027L;
-
+	
 }

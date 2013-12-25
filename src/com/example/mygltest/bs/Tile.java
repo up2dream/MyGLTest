@@ -16,4 +16,5 @@ public interface Tile {
 	public Coordinate coordinate();
 	public Rect rect();
 	public void resize(final Size sz);
+	public void resize(final int cx, final int cy);
 }

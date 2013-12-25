@@ -1,27 +1,47 @@
 package com.example.mygltest.bs;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.microedition.khronos.opengles.GL11;
 
 import cn.wps.moffice.presentation.sal.drawing.Point;
 import cn.wps.moffice.presentation.sal.drawing.PointF;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
+import cn.wps.moffice.presentation.sal.drawing.RectF;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
 public class TiledBackingStore {
-	static final int defaultTileDimension = 512;
-    static final double tileCreationDelay = 0.01;
+	private static final int defaultTileDimension = 512;
+    private static final long tileCreationDelay = 10;
 	
 	private TiledBackingStoreClient m_client;
 	private TiledBackingStoreBackend m_backend;
 
     TileMap m_tiles;
 
-    private Timer<TiledBackingStore> m_tileBufferUpdateTimer;
-    private Timer<TiledBackingStore> m_backingStoreUpdateTimer;
+    private Timer m_tileBufferUpdateTimer = new Timer("tileBufferUpdate");
+    private Timer m_backingStoreUpdateTimer = new Timer("backingStoreUpdate");
+    
+    private BSTimerTask mTileBufferUpdateTimerTask = new BSTimerTask() {
+		
+		@Override
+		public void runTask() {
+			tileBufferUpdateTimerFired();
+		}
+	};
 
+	private BSTimerTask mBackingStoreUpdateTimerTask = new BSTimerTask() {
+		@Override
+		public void runTask() {
+			backingStoreUpdateTimerFired();
+		}
+	};
+	
     private Size m_tileSize = new Size(defaultTileDimension, defaultTileDimension);
     private float m_coverAreaMultiplier = 2.0f;
 
@@ -105,7 +125,7 @@ public class TiledBackingStore {
 	    // painted when in frozen state.
 	    if (m_contentsFrozen)
 	        return;
-	    if (m_pendingScale)
+	    if (m_pendingScale != 0)
 	        commitScaleChange();
 	    else {
 	        startBackingStoreUpdateTimer();
@@ -121,11 +141,12 @@ public class TiledBackingStore {
 
 	    List<Rect> paintedArea = new ArrayList<Rect>();
 	    List<Tile> dirtyTiles = new ArrayList<Tile>();
-	    TileMap::iterator end = m_tiles.end();
-	    for (TileMap::iterator it = m_tiles.begin(); it != end; ++it) {
-	        if (!it->value->isDirty())
+	    Iterator<Entry<Coordinate, Tile>> it = m_tiles.entrySet().iterator();
+	    while (it.hasNext()) {
+	    	Entry<Coordinate, Tile> entry = it.next();
+	        if (!entry.getValue().isDirty())
 	            continue;
-	        dirtyTiles.append(it->value);
+	        dirtyTiles.add(entry.getValue());
 	    }
 
 	    if (dirtyTiles.isEmpty()) {
@@ -136,10 +157,10 @@ public class TiledBackingStore {
 	    // FIXME: In single threaded case, tile back buffers could be updated asynchronously 
 	    // one by one and then swapped to front in one go. This would minimize the time spent
 	    // blocking on tile updates.
-	    unsigned size = dirtyTiles.size();
-	    for (unsigned n = 0; n < size; ++n) {
+	    int size = dirtyTiles.size();
+	    for (int n = 0; n < size; ++n) {
 	        List<Rect> paintedRects = dirtyTiles.get(n).updateBackBuffer();
-	        paintedArea.appendVector(paintedRects);
+	        paintedArea.addAll(paintedRects);
 	        dirtyTiles.get(n).swapBackBufferToFront();
 	    }
 
@@ -148,13 +169,13 @@ public class TiledBackingStore {
 
 	public void invalidate(final Rect contentsDirtyRect) {
 		Rect dirtyRect = new Rect(mapFromContents(contentsDirtyRect));
-	    Rect keepRectFitToTileSize = tileRectForCoordinate(tileCoordinateForPoint(m_keepRect.location()));
-	    keepRectFitToTileSize.unite(tileRectForCoordinate(tileCoordinateForPoint(innerBottomRight(m_keepRect))));
+	    Rect keepRectFitToTileSize = tileRectForCoordinate(tileCoordinateForPoint(m_keepRect.getLeft(), m_keepRect.getTop()));
+	    keepRectFitToTileSize.composite(tileRectForCoordinate(tileCoordinateForPoint(m_keepRect.getRight(), m_keepRect.getBottom())));
 
 	    // Only iterate on the part of the rect that we know we might have tiles.
-	    Rect coveredDirtyRect = intersection(dirtyRect, keepRectFitToTileSize);
-	    Coordinate topLeft = tileCoordinateForPoint(coveredDirtyRect.location());
-	    Coordinate bottomRight = tileCoordinateForPoint(innerBottomRight(coveredDirtyRect));
+	    Rect coveredDirtyRect = Rect.intersect(dirtyRect, keepRectFitToTileSize);
+	    Coordinate topLeft = tileCoordinateForPoint(coveredDirtyRect.getLeft(), coveredDirtyRect.getTop());
+	    Coordinate bottomRight = tileCoordinateForPoint(coveredDirtyRect.getRight(), coveredDirtyRect.getBottom());
 
 	    for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
 	        for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
@@ -171,33 +192,33 @@ public class TiledBackingStore {
 	}
     
     public void paint(GL11 gl, final Rect rt) {
-    	context->save();
-
-        // Assumes the backing store is painted with the scale transform applied.
-        // Since tile content is already scaled, first revert the scaling from the painter.
-        context->scale(FloatSize(1.f / m_contentsScale, 1.f / m_contentsScale));
-
-        Rect dirtyRect = mapFromContents(rect);
-
-        Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
-        Coordinate bottomRight = tileCoordinateForPoint(innerBottomRight(dirtyRect));
-
-        for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
-            for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
-                Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
-                Tile currentTile = tileAt(currentCoordinate);
-                if (currentTile != null && currentTile.isReadyToPaint())
-                    currentTile.paint(context, dirtyRect);
-                else {
-                    Rect tileRect = tileRectForCoordinate(currentCoordinate);
-                    Rect target = intersection(tileRect, dirtyRect);
-                    if (target.isEmpty())
-                        continue;
-                    m_backend.paintCheckerPattern(context, FloatRect(target));
-                }
-            }
-        }
-        context->restore();
+//    	context->save();
+//
+//        // Assumes the backing store is painted with the scale transform applied.
+//        // Since tile content is already scaled, first revert the scaling from the painter.
+//        context->scale(FloatSize(1.f / m_contentsScale, 1.f / m_contentsScale));
+//
+//        Rect dirtyRect = mapFromContents(rect);
+//
+//        Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
+//        Coordinate bottomRight = tileCoordinateForPoint(innerBottomRight(dirtyRect));
+//
+//        for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
+//            for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
+//                Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
+//                Tile currentTile = tileAt(currentCoordinate);
+//                if (currentTile != null && currentTile.isReadyToPaint())
+//                    currentTile.paint(context, dirtyRect);
+//                else {
+//                    Rect tileRect = tileRectForCoordinate(currentCoordinate);
+//                    Rect target = intersection(tileRect, dirtyRect);
+//                    if (target.isEmpty())
+//                        continue;
+//                    m_backend.paintCheckerPattern(context, FloatRect(target));
+//                }
+//            }
+//        }
+//        context->restore();
     }
 
     public Size tileSize() { 
@@ -214,43 +235,61 @@ public class TiledBackingStore {
     }
 
     public Rect mapToContents(final Rect rect) {
-    	 return enclosingIntRect(FloatRect(rect.getLeft() / m_contentsScale,
-    		        rect.getTop() / m_contentsScale,
-    		        rect.getWidth() / m_contentsScale,
-    		        rect.getHeight() / m_contentsScale));
+    	int l = (int) (rect.getLeft() / m_contentsScale);
+    	int t = (int) (rect.getTop() / m_contentsScale);
+    	int r = (int) (l + rect.getWidth() / m_contentsScale + 0.5f);
+    	int b = (int) (t + rect.getHeight() / m_contentsScale + 0.5f);
+    	return new Rect(l, t, r - l, b - t);
     }
     
     public Rect mapFromContents(final Rect rect) {
-    	return enclosingIntRect(FloatRect(rect.getLeft() * m_contentsScale,
-    	        rect.getTop() * m_contentsScale,
-    	        rect.getWidth() * m_contentsScale,
-    	        rect.getHeight() * m_contentsScale));
+    	int l = (int) (rect.getLeft() * m_contentsScale);
+    	int t = (int) (rect.getTop() * m_contentsScale);
+    	int r = (int) (l + rect.getWidth() * m_contentsScale + 0.5f);
+    	int b = (int) (t + rect.getHeight() * m_contentsScale + 0.5f);
+    	return new Rect(l, t, r - l, b - t);
     }
 
-    public Rect tileRectForCoordinate(final Coordinate coord) {
-    	Rect rect(coordinate.getX() * m_tileSize.width(),
-            coordinate.getY() * m_tileSize.height(),
-            m_tileSize.width(),
-            m_tileSize.height());
+    public Rect tileRectForCoordinate(final Coordinate coordinate) {
+	   return tileRectForCoordinate(coordinate.getX(), coordinate.getY());
+    }
+    
+    public Rect tileRectForCoordinate(final int tileX, final int tileY) {
+    	Rect rect = new Rect(tileX * m_tileSize.getWidth(),
+            tileY * m_tileSize.getHeight(),
+            m_tileSize.getWidth(),
+            m_tileSize.getHeight());
 
 	   rect.intersect(m_rect);
 	   return rect;
     }
     
     public Coordinate tileCoordinateForPoint(final Point point) {
-    	int x = point.getX() / m_tileSize.getWidth();
-	    int y = point.getY() / m_tileSize.getHeight();
+	    return tileCoordinateForPoint(point.getX(), point.getY());
+    }    
+    
+    public Coordinate tileCoordinateForPoint(final int tileX, final int tileY) {
+    	int x = tileX / m_tileSize.getWidth();
+	    int y = tileY / m_tileSize.getHeight();
 	    return new Coordinate(Math.max(x, 0), Math.max(y, 0));
     }
     
     public double tileDistance(final Rect viewport, final Coordinate tileCoordinate) {
-    	if (viewport.intersects(tileRectForCoordinate(tileCoordinate)))
+    	if (viewport.intersectsWith(tileRectForCoordinate(tileCoordinate)))
     		return 0;
 
-	    Point viewCenter = viewport.location() + IntSize(viewport.getWidth() / 2, viewport.getHeight() / 2);
-	    Coordinate centerCoordinate = tileCoordinateForPoint(viewCenter);
+	    Coordinate centerCoordinate = tileCoordinateForPoint(viewport.centerX(), viewport.centerY());
 
 	    return Math.max(Math.abs(centerCoordinate.getY() - tileCoordinate.getY()), Math.abs(centerCoordinate.getX() - tileCoordinate.getX()));
+    }
+
+    public double tileDistance(final Rect viewport, final int tileX, final int tileY) {
+    	if (viewport.intersectsWith(tileRectForCoordinate(tileX, tileY)))
+    		return 0;
+
+	    Coordinate centerCoordinate = tileCoordinateForPoint(viewport.centerX(), viewport.centerY());
+
+	    return Math.max(Math.abs(centerCoordinate.getY() - tileY), Math.abs(centerCoordinate.getX() - tileX));
     }
 
     public Rect coverRect() { 
@@ -258,12 +297,12 @@ public class TiledBackingStore {
 	}
     
     public boolean visibleAreaIsCovered() {
-    	Rect boundedVisibleContentsRect = intersection(m_client.tiledBackingStoreVisibleRect(), m_client.tiledBackingStoreContentsRect());
+    	Rect boundedVisibleContentsRect = Rect.intersect(m_client.tiledBackingStoreVisibleRect(), m_client.tiledBackingStoreContentsRect());
         return coverageRatio(boundedVisibleContentsRect) == 1.0f;
     }
     
     public void removeAllNonVisibleTiles() {
-    	Rect boundedVisibleRect = mapFromContents(intersection(m_client.tiledBackingStoreVisibleRect(), m_client.tiledBackingStoreContentsRect()));
+    	Rect boundedVisibleRect = mapFromContents(Rect.intersect(m_client.tiledBackingStoreVisibleRect(), m_client.tiledBackingStoreContentsRect()));
         setKeepRect(boundedVisibleRect);
     }
 
@@ -278,31 +317,31 @@ public class TiledBackingStore {
     	if (!m_commitTileUpdatesOnIdleEventLoop)
             return;
 
-        if (m_tileBufferUpdateTimer.isActive() || isTileBufferUpdatesSuspended())
+        if (mTileBufferUpdateTimerTask.isActive() || isTileBufferUpdatesSuspended())
             return;
-        m_tileBufferUpdateTimer.startOneShot(0);
+        m_tileBufferUpdateTimer.schedule(mTileBufferUpdateTimerTask, 0);
     }
     
     private void startBackingStoreUpdateTimer() {
     	startBackingStoreUpdateTimer(0);
     }
 
-    private void startBackingStoreUpdateTimer(double value) {
+    private void startBackingStoreUpdateTimer(long interval) {
     	if (!m_commitTileUpdatesOnIdleEventLoop)
             return;
 
-        if (m_backingStoreUpdateTimer.isActive() || isBackingStoreUpdatesSuspended())
+        if (mBackingStoreUpdateTimerTask.isActive() || isBackingStoreUpdatesSuspended())
             return;
-        m_backingStoreUpdateTimer.startOneShot(interval);
+        m_backingStoreUpdateTimer.schedule(mBackingStoreUpdateTimerTask, interval);
     }
 
-    void tileBufferUpdateTimerFired(Timer<TiledBackingStore>*) {
-    	ASSERT(m_commitTileUpdatesOnIdleEventLoop);
+    void tileBufferUpdateTimerFired() {
+    	assert(m_commitTileUpdatesOnIdleEventLoop);
         updateTileBuffers();
     }
     
-    void backingStoreUpdateTimerFired(Timer<TiledBackingStore>*) {
-    	ASSERT(m_commitTileUpdatesOnIdleEventLoop);
+    void backingStoreUpdateTimerFired() {
+    	assert(m_commitTileUpdatesOnIdleEventLoop);
 	    createTiles();
     }
 
@@ -362,45 +401,45 @@ public class TiledBackingStore {
 
         // Search for the tile position closest to the viewport center that does not yet contain a tile.
         // Which position is considered the closest depends on the tileDistance function.
-        double shortestDistance = std::numeric_limits<double>::infinity();
+        double shortestDistance = Double.POSITIVE_INFINITY;
         List<Coordinate> tilesToCreate = new ArrayList<Coordinate>();
-        unsigned requiredTileCount = 0;
+        int requiredTileCount = 0;
 
         // Cover areas (in tiles) with minimum distance from the visible rect. If the visible rect is
         // not covered already it will be covered first in one go, due to the distance being 0 for tiles
         // inside the visible rect.
-        Coordinate topLeft = tileCoordinateForPoint(coverRect.location());
-        Coordinate bottomRight = tileCoordinateForPoint(innerBottomRight(coverRect));
-        for (int yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
-            for (int xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
-                if (tileAt(xCoordinate, yCoordinate))
+        Coordinate topLeft = tileCoordinateForPoint(coverRect.getLeft(), coverRect.getTop());
+        Coordinate bottomRight = tileCoordinateForPoint(coverRect.getRight(), coverRect.getBottom());
+        for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
+            for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
+                if (tileAt(xCoordinate, yCoordinate) != null)
                     continue;
                 ++requiredTileCount;
-                double distance = tileDistance(m_visibleRect, currentCoordinate);
+                double distance = tileDistance(m_visibleRect, xCoordinate, yCoordinate);
                 if (distance > shortestDistance)
                     continue;
                 if (distance < shortestDistance) {
                     tilesToCreate.clear();
                     shortestDistance = distance;
                 }
-                tilesToCreate.append(currentCoordinate);
+                tilesToCreate.add(new Coordinate(xCoordinate, yCoordinate));
             }
         }
 
         // Now construct the tile(s) within the shortest distance.
-        unsigned tilesToCreateCount = tilesToCreate.size();
-        for (unsigned n = 0; n < tilesToCreateCount; ++n) {
-            Coordinate coordinate = tilesToCreate[n];
+        int tilesToCreateCount = tilesToCreate.size();
+        for (int n = 0; n < tilesToCreateCount; ++n) {
+            Coordinate coordinate = tilesToCreate.get(n);
             setTile(coordinate, m_backend.createTile(this, coordinate));
         }
         requiredTileCount -= tilesToCreateCount;
 
         // Paint the content of the newly created tiles or resized tiles.
-        if (tilesToCreateCount || didResizeTiles)
+        if (tilesToCreateCount != 0 || didResizeTiles)
             updateTileBuffers();
 
         // Re-call createTiles on a timer to cover the visible area with the newest shortest distance.
-        m_pendingTileCreation = requiredTileCount;
+        m_pendingTileCreation = requiredTileCount != 0;
         if (m_pendingTileCreation) {
             if (!m_commitTileUpdatesOnIdleEventLoop) {
                 m_client.tiledBackingStoreHasPendingTileCreation();
@@ -418,11 +457,10 @@ public class TiledBackingStore {
         // If we cover more that the actual viewport we can be smart about which tiles we choose to render.
         if (m_coverAreaMultiplier > 1) {
             // The initial cover area covers equally in each direction, according to the coverAreaMultiplier.
-            coverRect.inflateX(visibleRect.getWidth() * (m_coverAreaMultiplier - 1) / 2);
-            coverRect.inflateY(visibleRect.getHeight() * (m_coverAreaMultiplier - 1) / 2);
+            coverRect.inflate((int)(visibleRect.getWidth() * (m_coverAreaMultiplier - 1) / 2), (int)(visibleRect.getHeight() * (m_coverAreaMultiplier - 1) / 2));
             keepRect = coverRect;
 
-            if (m_trajectoryVector != FloatPoint::zero()) {
+            if (m_pendingTrajectoryVector.getX() != 0 || m_pendingTrajectoryVector.getY() != 0) {
                 // A null trajectory vector (no motion) means that tiles for the coverArea will be created.
                 // A non-null trajectory vector will shrink the covered rect to visibleRect plus its expansion from its
                 // center toward the cover area edges in the direction of the given vector.
@@ -437,23 +475,23 @@ public class TiledBackingStore {
 
                 // Unite the visible rect with a "ghost" of the visible rect moved in the direction of the trajectory vector.
                 coverRect = visibleRect;
-                coverRect.move(coverRect.width() * m_trajectoryVector.x() * trajectoryVectorMultiplier,
-                               coverRect.height() * m_trajectoryVector.y() * trajectoryVectorMultiplier);
+                coverRect.offset((int)(coverRect.getWidth() * m_trajectoryVector.getX() * trajectoryVectorMultiplier),
+                               (int)(coverRect.getHeight() * m_trajectoryVector.getY() * trajectoryVectorMultiplier));
 
-                coverRect.unite(visibleRect);
+                coverRect.composite(visibleRect);
             }
-            ASSERT(keepRect.contains(coverRect));
+            
+            assert(keepRect.contains(coverRect));
         }
 
         adjustForContentsRect(coverRect);
 
         // The keep rect is an inflated version of the cover rect, inflated in tile dimensions.
-        keepRect.unite(coverRect);
-        keepRect.inflateX(m_tileSize.width() / 2);
-        keepRect.inflateY(m_tileSize.height() / 2);
+        keepRect.composite(coverRect);
+        keepRect.inflate(m_tileSize.getWidth() / 2, m_tileSize.getHeight() / 2);
         keepRect.intersect(m_rect);
 
-        ASSERT(coverRect.isEmpty() || keepRect.contains(coverRect));
+        assert(coverRect.isEmpty() || keepRect.contains(coverRect));
     }
 
     private boolean isBackingStoreUpdatesSuspended() {
@@ -473,22 +511,23 @@ public class TiledBackingStore {
 
     private boolean resizeEdgeTiles() {
     	boolean wasResized = false;
-    	List<Coordinate> tilesToRemove;
-	    TileMap::iterator end = m_tiles.end();
-	    for (TileMap::iterator it = m_tiles.begin(); it != end; ++it) {
-	        Tile::Coordinate tileCoordinate = it->value->coordinate();
-	        IntRect tileRect = it->value->rect();
-	        IntRect expectedTileRect = tileRectForCoordinate(tileCoordinate);
+    	List<Coordinate> tilesToRemove = new ArrayList<Coordinate>();
+	    Iterator<Entry<Coordinate, Tile>> it = m_tiles.entrySet().iterator();
+	    while (it.hasNext()) {
+	    	Entry<Coordinate, Tile> entry = it.next();
+	        Coordinate tileCoordinate = entry.getValue().coordinate();
+	        Rect tileRect = entry.getValue().rect();
+	        Rect expectedTileRect = tileRectForCoordinate(tileCoordinate);
 	        if (expectedTileRect.isEmpty())
-	            tilesToRemove.append(tileCoordinate);
+	            tilesToRemove.add(tileCoordinate);
 	        else if (expectedTileRect != tileRect) {
-	            it->value->resize(expectedTileRect.size());
+	            entry.getValue().resize(expectedTileRect.getWidth(), expectedTileRect.getHeight());
 	            wasResized = true;
 	        }
 	    }
-	    unsigned removeCount = tilesToRemove.size();
-	    for (unsigned n = 0; n < removeCount; ++n)
-	        removeTile(tilesToRemove[n]);
+	    int removeCount = tilesToRemove.size();
+	    for (int n = 0; n < removeCount; ++n)
+	        removeTile(tilesToRemove.get(n));
 	    return wasResized;
     }
     
@@ -496,19 +535,20 @@ public class TiledBackingStore {
     private void setKeepRect(final Rect keepRect) {
     	 // Drop tiles outside the new keepRect.
 
-        FloatRect keepRectF = keepRect;
+        RectF keepRectF = keepRect.toRectF();
 
-        Vector<Tile::Coordinate> toRemove;
-        TileMap::iterator end = m_tiles.end();
-        for (TileMap::iterator it = m_tiles.begin(); it != end; ++it) {
-            Tile::Coordinate coordinate = it->value->coordinate();
-            FloatRect tileRect = it->value->rect();
-            if (!tileRect.intersects(keepRectF))
-                toRemove.append(coordinate);
+        List<Coordinate> toRemove = new ArrayList<Coordinate>();;
+        Iterator<Entry<Coordinate, Tile>> it = m_tiles.entrySet().iterator();
+        while (it.hasNext()) {
+        	Entry<Coordinate, Tile> entry = it.next();
+            Coordinate coordinate = entry.getValue().coordinate();
+            RectF tileRect = entry.getValue().rect().toRectF();
+            if (!tileRect.intersectsWith(keepRectF))
+                toRemove.add(coordinate);
         }
-        unsigned removeCount = toRemove.size();
-        for (unsigned n = 0; n < removeCount; ++n)
-            removeTile(toRemove[n]);
+        int removeCount = toRemove.size();
+        for (int n = 0; n < removeCount; ++n)
+            removeTile(toRemove.get(n));
 
         m_keepRect = keepRect;
     }
@@ -518,7 +558,7 @@ public class TiledBackingStore {
     }
     
     private Tile tileAt(int x, int y) {
-//    	return m_tiles.get(coordinate);
+    	return m_tiles.get(new Coordinate(x, y)); // TODO effective problem
     }
     
     private void setTile(final Coordinate coordinate, Tile tile) {
@@ -538,14 +578,14 @@ public class TiledBackingStore {
         float rectArea = dirtyRect.getWidth() * dirtyRect.getHeight();
         float coverArea = 0.0f;
 
-        Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
-        Coordinate bottomRight = tileCoordinateForPoint(innerBottomRight(dirtyRect));
+        Coordinate topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
+        Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.getRight(), dirtyRect.getBottom());
 
         for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
             for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
                 Tile currentTile = tileAt(xCoordinate, yCoordinate);
                 if (currentTile != null && currentTile.isReadyToPaint()) {
-                    Rect coverRect = intersection(dirtyRect, currentTile.rect());
+                    Rect coverRect = Rect.intersect(dirtyRect, currentTile.rect());
                     coverArea += coverRect.getWidth() * coverRect.getHeight();
                 }
             }
@@ -555,11 +595,11 @@ public class TiledBackingStore {
     
     private void adjustForContentsRect(Rect rect) {
         Rect bounds = m_rect;
-        Size candidateSize = rect.size();
+        Size candidateSize = new Size(rect.getWidth(), rect.getHeight());
 
         rect.intersect(bounds);
 
-        if (rect.size() == candidateSize)
+        if (rect.getWidth() == candidateSize.getWidth() && rect.getHeight() == candidateSize.getHeight())
             return;
 
         /*
@@ -582,16 +622,38 @@ public class TiledBackingStore {
             return;
 
         // Try to create a cover rect of the same size as the candidate, but within content bounds.
-        int pixelsCovered = candidateSize.width() * candidateSize.height();
+        int pixelsCovered = candidateSize.getWidth() * candidateSize.getHeight();
 
         if (rect.getWidth() < candidateSize.getWidth())
-            rect.inflateY(((pixelsCovered / rect.getWidth()) - rect.getHeight()) / 2);
+            rect.inflate(0, ((pixelsCovered / rect.getWidth()) - rect.getHeight()) / 2);
         if (rect.getHeight() < candidateSize.getHeight())
-            rect.inflateX(((pixelsCovered / rect.getHeight()) - rect.getWidth()) / 2);
+            rect.inflate(((pixelsCovered / rect.getHeight()) - rect.getWidth()) / 2, 0);
 
         rect.intersect(bounds);
     }
 
     private void paintCheckerPattern(GL11 gl, final Rect rect, final Coordinate coord) {
+    	
 	}
+    
+    private abstract class BSTimerTask extends TimerTask {
+
+    	private volatile boolean mActive = false;
+    	
+    	@Override
+    	public void run() {
+    		mActive = true;
+    		
+    		runTask();
+    		
+    		mActive = false;
+    	}
+    	
+    	public abstract void runTask();
+    	
+		public boolean isActive() {
+			return mActive;
+		}
+    	
+    }
 }
