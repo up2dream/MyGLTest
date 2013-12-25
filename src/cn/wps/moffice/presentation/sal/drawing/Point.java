@@ -82,6 +82,19 @@ public class Point implements Serializable {
 	}
 	
 	@Override
+	public boolean equals(Object o) {
+		if (o == null) 
+			return false;
+		if (this == o)
+			return true;
+		if (!(o instanceof Point))
+			return false;
+		
+		Point value = (Point)o;
+		return x == value.x && y == value.y;
+	}
+	
+	@Override
 	public String toString() {
 		return String.format("(%d, %d)", getX(), getY());
 	}

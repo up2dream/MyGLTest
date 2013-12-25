@@ -81,6 +81,23 @@ public class PointF implements Serializable{
 	public String toString() {
 		return String.format("(%f, %f)", getX(), getY());
 	}
+	
+	public final float lengthSquared() {
+        return x * x + y * y;
+    }
+	
+	public final float length() {
+	    return (float) Math.sqrt(lengthSquared());
+	}
+	
+	public void normalize() {
+	    float tempLength = length();
+
+	    if (tempLength != 0) {
+	        x /= tempLength;
+	        y /= tempLength;
+	    }
+	}
 
 	private float x;
 	private float y;
