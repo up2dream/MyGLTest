@@ -8,7 +8,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import javax.microedition.khronos.opengles.GL11;
-
+import com.example.mygltest.bs.gles.TextureBuffer;
 import cn.wps.moffice.presentation.sal.drawing.Point;
 import cn.wps.moffice.presentation.sal.drawing.PointF;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
@@ -16,32 +16,16 @@ import cn.wps.moffice.presentation.sal.drawing.RectF;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
 public class TiledBackingStore {
+	
+	public static final boolean DEBUG = false;
 	private static final int defaultTileDimension = 512;
     private static final long tileCreationDelay = 10;
 	
 	private TiledBackingStoreClient m_client;
 	private TiledBackingStoreBackend m_backend;
+	private	TextureBuffer mTextureBuffer;
+    private TileMap m_tiles = new TileMap();
 
-    TileMap m_tiles;
-
-    private Timer m_tileBufferUpdateTimer = new Timer("tileBufferUpdate");
-    private Timer m_backingStoreUpdateTimer = new Timer("backingStoreUpdate");
-    
-    private BSTimerTask mTileBufferUpdateTimerTask = new BSTimerTask() {
-		
-		@Override
-		public void runTask() {
-			tileBufferUpdateTimerFired();
-		}
-	};
-
-	private BSTimerTask mBackingStoreUpdateTimerTask = new BSTimerTask() {
-		@Override
-		public void runTask() {
-			backingStoreUpdateTimerFired();
-		}
-	};
-	
     private Size m_tileSize = new Size(defaultTileDimension, defaultTileDimension);
     private float m_coverAreaMultiplier = 2.0f;
 
@@ -60,16 +44,62 @@ public class TiledBackingStore {
     private boolean m_contentsFrozen = false;
     private boolean m_supportsAlpha = false;
     private boolean m_pendingTileCreation = false;
+    
+    private int mX;
+    private int mY;
 	    
-	public TiledBackingStore(TiledBackingStoreClient client, TiledBackingStoreBackend backend) {
+    private Timer m_tileBufferUpdateTimer = new Timer("tileBufferUpdate");
+    private Timer m_backingStoreUpdateTimer = new Timer("backingStoreUpdate");
+    
+    private BSTimerTask mTileBufferUpdateTimerTask = new BSTimerTask() {
+		@Override
+		public void runTask() {
+			tileBufferUpdateTimerFired();
+		}
+	};
+
+	private BSTimerTask mBackingStoreUpdateTimerTask = new BSTimerTask() {
+		@Override
+		public void runTask() {
+			backingStoreUpdateTimerFired();
+		}
+	};
+
+	public TiledBackingStore(TiledBackingStoreClient client, TiledBackingStoreBackend backend, TextureBuffer textureBuffer) {
 		m_client = client;
 		m_backend = backend;
+		mTextureBuffer = textureBuffer;
 	}
 
 	public TiledBackingStoreClient client() {
     	return m_client; 
 	}
+	
+	public TextureBuffer getTextureBuffer() {
+		return mTextureBuffer;
+	}
 
+	public int getX() {
+		return mX;
+	}
+	
+	public void setX(int x) {
+		mX = x;
+	}
+	
+	public int getY() {
+		return mY;
+	}
+	
+	public void setY(int y) {
+		mY = y;
+	}
+	
+	public void setPosition(int x, int y) {
+		mX = x;
+		mY = y;
+	}
+	
     // Used when class methods cannot be called asynchronously by client.
     // Updates of tiles are committed as soon as all the events in event queue have been processed.
 	public void setCommitTileUpdatesOnIdleEventLoop(boolean enable) {
@@ -191,33 +221,33 @@ public class TiledBackingStore {
 	    startTileBufferUpdateTimer();
 	}
     
-    public void paint(GL11 gl, final Rect rt) {
+    public void paint(GL11 gl, final Rect rect) {
 //    	context->save();
-//
-//        // Assumes the backing store is painted with the scale transform applied.
-//        // Since tile content is already scaled, first revert the scaling from the painter.
+
+        // Assumes the backing store is painted with the scale transform applied.
+        // Since tile content is already scaled, first revert the scaling from the painter.
 //        context->scale(FloatSize(1.f / m_contentsScale, 1.f / m_contentsScale));
-//
-//        Rect dirtyRect = mapFromContents(rect);
-//
-//        Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
-//        Coordinate bottomRight = tileCoordinateForPoint(innerBottomRight(dirtyRect));
-//
-//        for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
-//            for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
-//                Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
-//                Tile currentTile = tileAt(currentCoordinate);
-//                if (currentTile != null && currentTile.isReadyToPaint())
-//                    currentTile.paint(context, dirtyRect);
-//                else {
-//                    Rect tileRect = tileRectForCoordinate(currentCoordinate);
-//                    Rect target = intersection(tileRect, dirtyRect);
-//                    if (target.isEmpty())
-//                        continue;
-//                    m_backend.paintCheckerPattern(context, FloatRect(target));
-//                }
-//            }
-//        }
+
+        Rect dirtyRect = mapFromContents(rect);
+
+        Coordinate topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
+        Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.getRight(), dirtyRect.getBottom());
+
+        for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
+            for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
+                Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
+                Tile currentTile = tileAt(currentCoordinate);
+                if (currentTile != null && currentTile.isReadyToPaint())
+                    currentTile.paint(gl, dirtyRect);
+                else {
+                    Rect tileRect = tileRectForCoordinate(currentCoordinate);
+                    Rect target = Rect.intersect(tileRect, dirtyRect);
+                    if (target.isEmpty())
+                        continue;
+                    m_backend.paintCheckerPattern(gl, target.getLeft(), target.getTop(), target.getWidth(), target.getHeight());
+                }
+            }
+        }
 //        context->restore();
     }
 
@@ -430,7 +460,7 @@ public class TiledBackingStore {
         int tilesToCreateCount = tilesToCreate.size();
         for (int n = 0; n < tilesToCreateCount; ++n) {
             Coordinate coordinate = tilesToCreate.get(n);
-            setTile(coordinate, m_backend.createTile(this, coordinate));
+            setTile(coordinate, m_backend.createTile(coordinate));
         }
         requiredTileCount -= tilesToCreateCount;
 
@@ -632,10 +662,6 @@ public class TiledBackingStore {
         rect.intersect(bounds);
     }
 
-    private void paintCheckerPattern(GL11 gl, final Rect rect, final Coordinate coord) {
-    	
-	}
-    
     private abstract class BSTimerTask extends TimerTask {
 
     	private volatile boolean mActive = false;

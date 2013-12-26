@@ -12,14 +12,12 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import cn.wps.moffice.presentation.sal.drawing.Point;
 
-import com.example.mygltest.bs.BSGLRenderer;
 import com.example.mygltest.bs.BSGLSurfaceView;
 import com.example.mygltest.bs.SimpleDataSource;
 
 public class MainActivity extends Activity {
 
 	private BSGLSurfaceView mGLSurfaceView;
-	private BSGLRenderer mRenderer;
 	private static MainActivity sInstance;
 
 	public static MainActivity getInstance() {
@@ -38,8 +36,7 @@ public class MainActivity extends Activity {
 	    final ConfigurationInfo configurationInfo = activityManager.getDeviceConfigurationInfo();
 	    final boolean supportsEs2 = false;//configurationInfo.reqGlEsVersion >= 0x20000;
 	 
-	    mRenderer = new BSGLRenderer(mGLSurfaceView);
-	    mRenderer.setDS(new SimpleDataSource());
+//	    mRenderer.setDS(new SimpleDataSource());
 	    
 	    if (supportsEs2) {
 	        // Request an OpenGL ES 2.0 compatible context.
@@ -47,12 +44,12 @@ public class MainActivity extends Activity {
 	 
 	        // Set the renderer to our demo renderer, defined below.
 //	        mGLSurfaceView.setRenderer(new MyGLRenderer(mGLSurfaceView));
-	        mGLSurfaceView.setRenderer(mRenderer);
+	        mGLSurfaceView.setRenderer(mGLSurfaceView);
 	    } else {
 	        // This is where you could create an OpenGL ES 1.x compatible
 	        // renderer if you wanted to support both ES 1 and ES 2.
 //	        mGLSurfaceView.setRenderer(new MyGLRenderer(mGLSurfaceView));
-	        mGLSurfaceView.setRenderer(mRenderer);
+	        mGLSurfaceView.setRenderer(mGLSurfaceView);
 	    }
 	 
 	    mGLSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
@@ -92,11 +89,11 @@ public class MainActivity extends Activity {
 			return true;
 		case R.id.zoom_out:
 			scale -= .2f;
-			mRenderer.mouseZoom(scale, new Point(mGLSurfaceView.getWidth()/2, mGLSurfaceView.getHeight()/2));
+//			mRenderer.mouseZoom(scale, new Point(mGLSurfaceView.getWidth()/2, mGLSurfaceView.getHeight()/2));
 			return true;
 		case R.id.zoom_in:
 			scale += .2f;
-			mRenderer.mouseZoom(scale, new Point(mGLSurfaceView.getWidth()/2, mGLSurfaceView.getHeight()/2));
+//			mRenderer.mouseZoom(scale, new Point(mGLSurfaceView.getWidth()/2, mGLSurfaceView.getHeight()/2));
 			return true;
 		default:
 			return super.onMenuItemSelected(featureId, item);
@@ -111,10 +108,10 @@ public class MainActivity extends Activity {
 		case MotionEvent.ACTION_DOWN:
 			m_mousePressPosition.SetPoint((int)event.getX(), (int)event.getY());
 		case MotionEvent.ACTION_MOVE:
-			mRenderer.m_viewOffset.offset(event.getX() - m_mousePressPosition.getX(), event.getY() - m_mousePressPosition.getY());
+//			mRenderer.m_viewOffset.offset(event.getX() - m_mousePressPosition.getX(), event.getY() - m_mousePressPosition.getY());
 			
 			m_mousePressPosition.SetPoint((int)event.getX(), (int)event.getY());
-			mRenderer.update();
+			mGLSurfaceView.update();
 			return true;
 		}
 		
