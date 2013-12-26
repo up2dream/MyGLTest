@@ -55,7 +55,7 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	    mGL.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP_TO_EDGE);
 	    mGL.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP_TO_EDGE);
 
-	    mTextureBuffer.drawChecker(mGL, 10, 10, 500, 500);
+	    mTextureBuffer.drawChecker(mGL, 100, 100, 1500, 1000);
 	}
 	
 	public void resizeGL(int width, int height)
