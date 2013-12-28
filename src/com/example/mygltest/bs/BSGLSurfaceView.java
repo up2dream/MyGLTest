@@ -5,6 +5,7 @@ import javax.microedition.khronos.opengles.GL10;
 import javax.microedition.khronos.opengles.GL11;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLSurfaceView.Renderer;
 import android.util.Log;
@@ -13,6 +14,9 @@ import cn.wps.moffice.presentation.sal.drawing.Size;
 import com.example.mygltest.Square;
 import com.example.mygltest.Triangle;
 import com.example.mygltest.bs.gles.TextureBuffer;
+import com.example.mygltest.util.GLCanvas;
+import com.example.mygltest.util.GLPaint;
+import com.example.mygltest.util.IGLCanvas;
 
 public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 
@@ -30,6 +34,7 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	private Triangle triangle = new Triangle();
 	
 	private RenderLayerPh_GL mLayer;
+	private IGLCanvas mGLCanvas;
 
 	/** Constructor to set the handed over context */
 	public BSGLSurfaceView(Context context) {
@@ -50,6 +55,8 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	}
 	
 	public void initializeGL() {
+		mGL.glEnable(GL11.GL_BLEND);
+		mGL.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 	    mGL.glDisable(GL11.GL_DEPTH_TEST);
 	    mGL.glEnable(GL11.GL_TEXTURE_2D);
 	}
@@ -108,6 +115,10 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 		
 //		paintGL();
 //		triangle.draw(gl);
+		
+//	    GLPaint paint = new GLPaint();
+//	    paint.setColor(Color.GREEN);
+//	    mGLCanvas.drawLine(0, 0, 300, 300, paint);
 	}
 
 	@Override
@@ -126,62 +137,17 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 		GL11 gl = (GL11) gl1;
         if (mGL == null) {
             mGL = gl;
+//            mGLCanvas = new GLCanvas(mGL);
         } else {
             // The GL Object has changed.
             Log.i(TAG, "GLObject has changed from " + mGL + " to " + gl);
             mGL = gl;
+//            mGLCanvas = new GLCanvas(mGL);
         }
 	        
 		// Load the texture for the square
 		square1.loadGLTexture(gl, getContext());
 		square2.loadGLTexture(gl, getContext());
-//
-//		gl.glEnable(GL10.GL_TEXTURE_2D);			//Enable Texture Mapping ( NEW )
-//		gl.glShadeModel(GL10.GL_SMOOTH); 			//Enable Smooth Shading
-//		gl.glClearColor(0.5f, 0.5f, 0.5f, 1.0f); 	//Black Background
-//		gl.glClearDepthf(1.0f); 					//Depth Buffer Setup
-//		gl.glEnable(GL10.GL_DEPTH_TEST); 			//Enables Depth Testing
-//		gl.glDepthFunc(GL10.GL_LEQUAL); 			//The Type Of Depth Testing To Do
-//
-//		//Really Nice Perspective Calculations
-//		gl.glHint(GL10.GL_PERSPECTIVE_CORRECTION_HINT, GL10.GL_NICEST);
-//		
-//		//---------------------------------------------------
-////		mView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
-//        // Increase the priority of the render thread.
-//        Process.setThreadPriority(Process.THREAD_PRIORITY_DISPLAY);
-//	       // Disable unused state.
-//        gl.glEnable(GL11.GL_DITHER);
-//        gl.glDisable(GL11.GL_LIGHTING);
-//
-//        // Set global state.
-//        // gl.glHint(GL11.GL_PERSPECTIVE_CORRECTION_HINT, GL11.GL_NICEST);
-//
-//        // Enable textures.
-//        gl.glEnable(GL11.GL_TEXTURE_2D);
-//        gl.glTexEnvf(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_REPLACE);
-//
-//        // Set up state for multitexture operations. Since multitexture is
-//        // currently used
-//        // only for layered crossfades the needed state can be factored out into
-//        // one-time
-//        // initialization. This section may need to be folded into drawMixed2D()
-//        // if multitexture
-//        // is used for other effects.
-//
-//        // Enable Vertex Arrays
-//        gl.glEnableClientState(GL11.GL_VERTEX_ARRAY);
-//        gl.glEnableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
-//        gl.glClientActiveTexture(GL11.GL_TEXTURE1);
-//        gl.glEnableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
-//        gl.glClientActiveTexture(GL11.GL_TEXTURE0);
-//
-//        // Enable depth test.
-//        gl.glEnable(GL11.GL_DEPTH_TEST);
-//        gl.glDepthFunc(GL11.GL_LEQUAL);
-//
-//        // Set the blend function for premultiplied alpha.
-//        gl.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
         
         initializeGL();
 	}

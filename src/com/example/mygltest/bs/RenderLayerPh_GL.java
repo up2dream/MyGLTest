@@ -19,6 +19,7 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 	private TiledBackingStore mBS;
 	private Rect mVisibleRect = new Rect();
 	private Rect mContentsRect = new Rect();
+	private Color mBgColor = Color.parse("#7F0000FF");
 	
 	public RenderLayerPh_GL(TextureBuffer textureBuffer) {
 		TiledBackingStoreBackendGL backend = new TiledBackingStoreBackendGL();
@@ -59,12 +60,15 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 	@Override
 	public void tbsPaint(Canvas canvas, Rect rect) {
 		canvas.translate(-rect.getLeft(), -rect.getTop());
-		LinearGradient mLinearGradient = new LinearGradient(0,0,500*mBS.getContentsScale(),500*mBS.getContentsScale(),  
-                new int[]{android.graphics.Color.RED,android.graphics.Color.GREEN,android.graphics.Color.BLUE,android.graphics.Color.WHITE},  
+		float contentsScale = mBS.getContentsScale();
+		LinearGradient mLinearGradient = new LinearGradient(0,0,500*contentsScale,500*contentsScale,  
+                new int[] {android.graphics.Color.RED, android.graphics.Color.GREEN, android.graphics.Color.BLUE, android.graphics.Color.WHITE},  
                 null, Shader.TileMode.REPEAT);
 		Paint paint = new Paint();
 		paint.setShader(mLinearGradient);
-		canvas.drawRect(rect.getLeft(), rect.getTop(), rect.getRight(), rect.getBottom(), paint);  
+		canvas.clipRect(rect.getLeft(), rect.getTop(), rect.getRight(), rect.getBottom());
+		canvas.drawRect(mContentsRect.getLeft() * contentsScale, mContentsRect.getTop() * contentsScale, 
+				mContentsRect.getRight() * contentsScale, mContentsRect.getBottom() * contentsScale, paint);  
 	}
 
 	@Override
@@ -92,11 +96,11 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 
 	@Override
 	public Color tbsGetBackgroundColor() {
-		return null;
+		return mBgColor ;
 	}
 
 	public void paint(GL11 gl) {
-		mBS.paint(gl, mContentsRect);
+		mBS.paint(gl, tbsGetVisibleRect());
 	}
 	
 	public void setContentsScale(float scale) {

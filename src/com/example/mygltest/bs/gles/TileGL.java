@@ -11,6 +11,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
+import android.graphics.PorterDuff.Mode;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
@@ -55,7 +56,7 @@ public class TileGL implements ITile {
 		Canvas canvas = new Canvas(bitmap);
 		canvas.save();
 		
-		canvas.drawColor(Color.BLUE);
+		canvas.drawColor(mBS.getClient().tbsGetBackgroundColor().getArgb());
 		mBS.getClient().tbsPaint(canvas, mRect);
 		canvas.restore();
 		
@@ -91,10 +92,9 @@ public class TileGL implements ITile {
 	}
 
 	@Override
-	public void paint(GL11 gl, Rect rt, float contentsScale, float pendingScale) {
-		float factor = pendingScale == 0 ? 1 : pendingScale / contentsScale;
-		mTextureBuffer.draw(gl, mFrontTextureID, mBS.getX() + mRect.getLeft() * factor, mBS.getY() + mRect.getTop() * factor, 
-				mRect.getWidth() * factor, mRect.getHeight() * factor);
+	public void paint(GL11 gl, Rect rt, float scaleFactor) {
+		mTextureBuffer.draw(gl, mFrontTextureID, mBS.getX() + mRect.getLeft() * scaleFactor, mBS.getY() + mRect.getTop() * scaleFactor, 
+				mRect.getWidth() * scaleFactor, mRect.getHeight() * scaleFactor);
 	}
 
 	@Override

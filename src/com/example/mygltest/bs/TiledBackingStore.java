@@ -10,14 +10,14 @@ import java.util.TimerTask;
 
 import javax.microedition.khronos.opengles.GL11;
 
-import android.os.Debug;
-
-import com.example.mygltest.bs.gles.TextureBuffer;
+import android.util.Log;
 import cn.wps.moffice.presentation.sal.drawing.Point;
 import cn.wps.moffice.presentation.sal.drawing.PointF;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.RectF;
 import cn.wps.moffice.presentation.sal.drawing.Size;
+
+import com.example.mygltest.bs.gles.TextureBuffer;
 
 public class TiledBackingStore {
 	
@@ -55,19 +55,8 @@ public class TiledBackingStore {
     private Timer mTileBufferUpdateTimer = new Timer("tileBufferUpdate");
     private Timer mBackingStoreUpdateTimer = new Timer("backingStoreUpdate");
     
-    private BSTimerTask mTileBufferUpdateTimerTask = new BSTimerTask() {
-		@Override
-		public void runTask() {
-			tileBufferUpdateTimerFired();
-		}
-	};
-
-	private BSTimerTask mBackingStoreUpdateTimerTask = new BSTimerTask() {
-		@Override
-		public void runTask() {
-			backingStoreUpdateTimerFired();
-		}
-	};
+    private BSTimerTask mTileBufferUpdateTimerTask;
+	private BSTimerTask mBackingStoreUpdateTimerTask;
 
 	public TiledBackingStore(TiledBackingStoreClient client, ITiledBackingStoreBackend backend, TextureBuffer textureBuffer) {
 		mClient = client;
@@ -230,13 +219,8 @@ public class TiledBackingStore {
 	}
     
     public void paint(GL11 gl, final Rect rect) {
-//    	context->save();
-
-        // Assumes the backing store is painted with the scale transform applied.
-        // Since tile content is already scaled, first revert the scaling from the painter.
-//        context->scale(FloatSize(1.f / m_contentsScale, 1.f / m_contentsScale));
-
-        Rect dirtyRect = mapFromContents(rect);
+        Rect dirtyRect = mapFromContents(rect, mPendingScale == 0 ? mContentsScale : mPendingScale);
+//        Rect dirtyRect = mapFromContents(rect);
 
         Coordinate topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
         Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.getRight(), dirtyRect.getBottom());
@@ -245,19 +229,21 @@ public class TiledBackingStore {
             for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
                 Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
                 ITile currentTile = getTileAt(currentCoordinate);
-                if (currentTile != null && currentTile.isReadyToPaint())
-                    currentTile.paint(gl, dirtyRect, mContentsScale, mPendingScale);
-                else {
+                if (currentTile != null && currentTile.isReadyToPaint()) {
+                	float scaleFactor = mPendingScale == 0 ? 1 : mPendingScale / mContentsScale;
+                    currentTile.paint(gl, dirtyRect, scaleFactor);
+                } else {
                     Rect tileRect = tileRectForCoordinate(currentCoordinate);
                     Rect target = Rect.intersect(tileRect, dirtyRect);
                     if (target == null || target.isEmpty())
                         continue;
                     
-                    mBackend.paintCheckerPattern(gl, target.getLeft(), target.getTop(), target.getWidth(), target.getHeight());
+                    float scaleFactor = mPendingScale == 0 ? 1 : mPendingScale / mContentsScale;
+                    mBackend.paintCheckerPattern(gl, mX + target.getLeft() * scaleFactor, mY + target.getTop() * scaleFactor, 
+                    		target.getWidth() * scaleFactor, target.getHeight() * scaleFactor);
                 }
             }
         }
-//        context->restore();
     }
 
     public Size getTileSize() { 
@@ -282,10 +268,14 @@ public class TiledBackingStore {
     }
     
     public Rect mapFromContents(final Rect rect) {
-    	int l = (int) (rect.getLeft() * mContentsScale);
-    	int t = (int) (rect.getTop() * mContentsScale);
-    	int r = (int) (l + rect.getWidth() * mContentsScale + 0.5f);
-    	int b = (int) (t + rect.getHeight() * mContentsScale + 0.5f);
+    	return mapFromContents(rect, mContentsScale);
+    }   
+    
+    private Rect mapFromContents(final Rect rect, float contentsScale) {
+    	int l = (int) (rect.getLeft() * contentsScale);
+    	int t = (int) (rect.getTop() * contentsScale);
+    	int r = (int) (l + rect.getWidth() * contentsScale + 0.5f);
+    	int b = (int) (t + rect.getHeight() * contentsScale + 0.5f);
     	return new Rect(l, t, r - l, b - t);
     }
 
@@ -354,11 +344,15 @@ public class TiledBackingStore {
     }
 
     private void startTileBufferUpdateTimer() {
+    	Log.d("dd", "DDDDDDDDDDDDDDDDDDDdd_1_begin");
     	if (!mCommitTileUpdatesOnIdleEventLoop)
             return;
 
-        if (mTileBufferUpdateTimerTask.isActive() || isTileBufferUpdatesSuspended())
+        if ((mTileBufferUpdateTimerTask != null && mTileBufferUpdateTimerTask.isActive()) || isTileBufferUpdatesSuspended())
             return;
+        
+        mTileBufferUpdateTimerTask = new BSBufferUpdateTimerTask();
+        Log.d("dd", "DDDDDDDDDDDDDDDDDDDdd_1_execute");
         mTileBufferUpdateTimer.schedule(mTileBufferUpdateTimerTask, 0);
     }
     
@@ -367,11 +361,15 @@ public class TiledBackingStore {
     }
 
     private void startBackingStoreUpdateTimer(long interval) {
+        Log.d("dd", "DDDDDDDDDDDDDDDDDDDdd_2_begin");
     	if (!mCommitTileUpdatesOnIdleEventLoop)
             return;
 
-        if (mBackingStoreUpdateTimerTask.isActive() || isBackingStoreUpdatesSuspended())
+        if ((mBackingStoreUpdateTimerTask != null && mBackingStoreUpdateTimerTask.isActive()) || isBackingStoreUpdatesSuspended())
             return;
+
+        mBackingStoreUpdateTimerTask = new BSBackingStoreUpdateTimerTask();
+        Log.d("dd", "DDDDDDDDDDDDDDDDDDDdd_2_execute");
         mBackingStoreUpdateTimer.schedule(mBackingStoreUpdateTimerTask, interval);
     }
 
@@ -693,4 +691,18 @@ public class TiledBackingStore {
 		}
     	
     }
+    
+    private class BSBufferUpdateTimerTask extends BSTimerTask {
+		@Override
+		public void runTask() {
+			tileBufferUpdateTimerFired();
+		}
+	};
+	
+    private class BSBackingStoreUpdateTimerTask extends BSTimerTask {
+		@Override
+		public void runTask() {
+			backingStoreUpdateTimerFired();
+		}
+	};
 }
