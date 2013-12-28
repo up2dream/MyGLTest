@@ -219,8 +219,8 @@ public class TiledBackingStore {
 	}
     
     public void paint(GL11 gl, final Rect rect) {
-        Rect dirtyRect = mapFromContents(rect, mPendingScale == 0 ? mContentsScale : mPendingScale);
-//        Rect dirtyRect = mapFromContents(rect);
+//        Rect dirtyRect = mapFromContents(rect, mPendingScale == 0 ? mContentsScale : mPendingScale);
+        Rect dirtyRect = mapFromContents(rect);
 
         Coordinate topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
         Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.getRight(), dirtyRect.getBottom());
