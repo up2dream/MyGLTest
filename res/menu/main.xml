@@ -1,10 +1,16 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" >
 
     <item
-        android:id="@+id/draw_on_layer_0"
+        android:id="@+id/request_render"
         android:orderInCategory="100"
         android:showAsAction="never"
-        android:title="Draw On Layer 0"/>
+        android:title="Request Render"/>
+    
+    <item
+        android:id="@+id/draw_bs"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="Draw BS"/>
     
     <item
         android:id="@+id/zoom_out"
@@ -17,6 +23,12 @@
         android:orderInCategory="100"
         android:showAsAction="never"
         android:title="Zoom In"/>
+    
+    <item
+        android:id="@+id/draw_simple"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="Draw Simple"/>
     
     <item
         android:id="@+id/action_settings"

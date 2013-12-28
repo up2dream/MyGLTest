@@ -28,22 +28,33 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	private Square square1 = new Square();
 	private Square square2 = new Square();
 	private Triangle triangle = new Triangle();
+	
+	private RenderLayerPh_GL mLayer;
 
 	/** Constructor to set the handed over context */
 	public BSGLSurfaceView(Context context) {
 		super(context);
 		
-	    mTextureBuffer = new TextureBuffer();
+	    mTextureBuffer = new TextureBuffer(this);
+	    
+	    
+	    mLayer = new RenderLayerPh_GL(mTextureBuffer);
 	}
 	
-	public void initializeGL()
-	{
+	public TextureBuffer getTextureBuffer() {
+		return mTextureBuffer;
+	}
+	
+	public RenderLayerPh_GL getRenderLayer() {
+		return mLayer;
+	}
+	
+	public void initializeGL() {
 	    mGL.glDisable(GL11.GL_DEPTH_TEST);
 	    mGL.glEnable(GL11.GL_TEXTURE_2D);
 	}
-
-	public void paintGL()
-	{
+	
+	public void paintGL() {
 	    mGL.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	    mGL.glClear(GL11.GL_COLOR_BUFFER_BIT);
 
@@ -56,10 +67,11 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	    mGL.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP_TO_EDGE);
 
 	    mTextureBuffer.drawChecker(mGL, 100, 100, 1500, 1000);
+
+	    mLayer.paint(mGL);
 	}
 	
-	public void resizeGL(int width, int height)
-	{
+	public void resizeGL(int width, int height) {
 	    // Ensure that (0,0) is top left and (width - 1, height -1) is bottom right.
 	    mGL.glViewport(0, 0, width, height);
 	    
@@ -85,6 +97,8 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 
 		// Reset the Modelview Matrix
 		gl.glLoadIdentity();
+		
+		mTextureBuffer.updateTexture((GL11)gl);
 
 		paintGL();
 

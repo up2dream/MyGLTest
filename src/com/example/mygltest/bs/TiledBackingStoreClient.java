@@ -2,19 +2,18 @@ package com.example.mygltest.bs;
 
 import java.util.List;
 
-import javax.microedition.khronos.opengles.GL11;
-
+import android.graphics.Canvas;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.color.Color;
 
 public abstract class TiledBackingStoreClient {
 	
-	abstract void tiledBackingStorePaintBegin();
-	abstract void tiledBackingStorePaint(GL11 gl, final Rect rect);
-	abstract void tiledBackingStorePaintEnd(final List<Rect> paintedArea);
-	void tiledBackingStoreHasPendingTileCreation() { }
-	abstract Rect tiledBackingStoreContentsRect();
-	abstract Rect tiledBackingStoreVisibleRect();
-	abstract Color tiledBackingStoreBackgroundColor();
+	public abstract void tbsPaintBegin();
+	public abstract void tbsPaint(Canvas canvas, final Rect rect);
+	public abstract void tbsPaintEnd(final List<Rect> paintedArea);
+	public void tbsHasPendingTileCreation() { }
+	public abstract Rect tbsGetContentsRect();
+	public abstract Rect tbsGetVisibleRect();
+	public abstract Color tbsGetBackgroundColor();
 	
 }

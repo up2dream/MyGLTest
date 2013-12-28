@@ -1,39 +1,46 @@
 package com.example.mygltest.bs.gles;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 import javax.microedition.khronos.opengles.GL11;
 
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Paint.Style;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
 import com.example.mygltest.bs.Coordinate;
-import com.example.mygltest.bs.Tile;
+import com.example.mygltest.bs.ITile;
 import com.example.mygltest.bs.TiledBackingStore;
 
-public class TileGL implements Tile {
+public class TileGL implements ITile {
 	private Coordinate mCoordinate = new Coordinate();
 	private TextureBuffer mTextureBuffer;
 	private int mFrontTextureID;
 	private int mBackTextureID;
 	private TiledBackingStore mBS;
 	private Rect mRect = new Rect();
+	private boolean mDirty = true;
 
 	public TileGL(TiledBackingStore bs, final Coordinate coordinate) {
 		mBS = bs;
 		mCoordinate.SetPoint(coordinate.getX(), coordinate.getY());
 		
 		mTextureBuffer = mBS.getTextureBuffer();
-		int tileW = mBS.tileSize().getWidth();
-		int tileH = mBS.tileSize().getHeight();
+		int tileW = mBS.getTileSize().getWidth();
+		int tileH = mBS.getTileSize().getHeight();
 		
 		mRect.setRect(mCoordinate.getX() * tileW, mCoordinate.getY() * tileH, tileW, tileH);
 	}
 	
 	@Override
 	public boolean isDirty() {
-		// TODO Auto-generated method stub
-		return false;
+		return mDirty;
 	}
 
 	@Override
@@ -43,9 +50,32 @@ public class TileGL implements Tile {
 	}
 
 	@Override
-	public ArrayList<Rect> updateBackBuffer() {
-		// TODO Auto-generated method stub
-		return null;
+	public Collection<Rect> updateBackBuffer() {
+		Bitmap bitmap = Bitmap.createBitmap(mRect.getWidth(), mRect.getHeight(), Config.ARGB_8888);
+		Canvas canvas = new Canvas(bitmap);
+		canvas.save();
+		
+		canvas.drawColor(Color.BLUE);
+		mBS.getClient().tbsPaint(canvas, mRect);
+		canvas.restore();
+		
+		Paint paint = new Paint();
+		paint.setStyle(Style.STROKE);
+		paint.setStrokeWidth(1);
+		paint.setColor(Color.GREEN);
+		canvas.drawRect(0, 0, mRect.getWidth()-1, mRect.getHeight()-1, paint);
+		paint.setColor(Color.RED);
+		canvas.drawRect(10, 10, mRect.getWidth() - 10, mRect.getHeight() - 10, paint);
+		paint.setTextSize(15);
+		canvas.drawText("(" + mCoordinate.getX() + ", " + mCoordinate.getY() + ")", 15, 25, paint);
+		
+		TiledBackingStoreBackendGL backend = (TiledBackingStoreBackendGL) mBS.getBackend();
+		mBackTextureID = backend.writeToTextureSync(mBackTextureID, bitmap);
+		
+		bitmap.recycle();
+		
+		ArrayList<Rect> result = new ArrayList<Rect>(1);
+		return result;
 	}
 
 	@Override
@@ -61,8 +91,10 @@ public class TileGL implements Tile {
 	}
 
 	@Override
-	public void paint(GL11 gl, Rect rt) {
-		mTextureBuffer.draw(gl, mFrontTextureID, mBS.getX() + mRect.getLeft(), mBS.getY() + mRect.getTop(), mRect.getWidth(), mRect.getHeight());
+	public void paint(GL11 gl, Rect rt, float contentsScale, float pendingScale) {
+		float factor = pendingScale == 0 ? 1 : pendingScale / contentsScale;
+		mTextureBuffer.draw(gl, mFrontTextureID, mBS.getX() + mRect.getLeft() * factor, mBS.getY() + mRect.getTop() * factor, 
+				mRect.getWidth() * factor, mRect.getHeight() * factor);
 	}
 
 	@Override

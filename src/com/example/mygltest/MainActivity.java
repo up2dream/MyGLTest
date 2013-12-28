@@ -4,21 +4,30 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.ConfigurationInfo;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.util.FloatMath;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import cn.wps.moffice.presentation.sal.drawing.Point;
 
 import com.example.mygltest.bs.BSGLSurfaceView;
+import com.example.mygltest.bs.RenderLayerPh_GL;
 import com.example.mygltest.bs.SimpleDataSource;
 
 public class MainActivity extends Activity {
 
-	private BSGLSurfaceView mGLSurfaceView;
 	private static MainActivity sInstance;
+
+	private BSGLSurfaceView mGLSurfaceView;
+	private float oldDist = 0;
+	private float oldScale = 0;
 
 	public static MainActivity getInstance() {
 		return sInstance;
@@ -84,15 +93,27 @@ public class MainActivity extends Activity {
 	@Override
 	public boolean onMenuItemSelected(int featureId, MenuItem item) {
 		switch (item.getItemId()) {
-		case R.id.draw_on_layer_0:
+		case R.id.request_render:
 			mGLSurfaceView.requestRender();
 			return true;
+		case R.id.draw_bs:
+			mGLSurfaceView.getRenderLayer().setContentsScale(.2f);
+			
+			return true;
 		case R.id.zoom_out:
-			scale -= .2f;
-//			mRenderer.mouseZoom(scale, new Point(mGLSurfaceView.getWidth()/2, mGLSurfaceView.getHeight()/2));
+			scale = mGLSurfaceView.getRenderLayer().getContentsScale();
+			mGLSurfaceView.getRenderLayer().setContentsScale(scale * .7f);
 			return true;
 		case R.id.zoom_in:
-			scale += .2f;
+			scale = mGLSurfaceView.getRenderLayer().getContentsScale();
+			mGLSurfaceView.getRenderLayer().setContentsScale(scale * 1.3f);
+			return true;
+		case R.id.draw_simple:
+			Bitmap bitmap = Bitmap.createBitmap(200, 200, Config.ARGB_8888);
+			Canvas canvas = new Canvas(bitmap);
+			canvas.drawColor(Color.RED);
+			mGLSurfaceView.getTextureBuffer().writeToTextureSync(0, bitmap);
+			bitmap.recycle();
 //			mRenderer.mouseZoom(scale, new Point(mGLSurfaceView.getWidth()/2, mGLSurfaceView.getHeight()/2));
 			return true;
 		default:
@@ -104,18 +125,44 @@ public class MainActivity extends Activity {
 	
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		switch (event.getAction()) {
+		switch (event.getAction() & MotionEvent.ACTION_MASK) {
 		case MotionEvent.ACTION_DOWN:
 			m_mousePressPosition.SetPoint((int)event.getX(), (int)event.getY());
 		case MotionEvent.ACTION_MOVE:
-//			mRenderer.m_viewOffset.offset(event.getX() - m_mousePressPosition.getX(), event.getY() - m_mousePressPosition.getY());
-			
-			m_mousePressPosition.SetPoint((int)event.getX(), (int)event.getY());
-			mGLSurfaceView.update();
-			return true;
+			if (event.getPointerCount() > 1) {  
+		        float newDist = spacing(event);  
+		        if (Math.abs(newDist - oldDist) > 1) {
+					mGLSurfaceView.getRenderLayer().setContentsScale(oldScale * (newDist / oldDist));
+					mGLSurfaceView.update();
+		        }  
+		        break;  
+		    } else {
+				int offsetX = (int) (event.getX() - m_mousePressPosition.getX());
+				int offsetY = (int) (event.getY() - m_mousePressPosition.getY());
+				RenderLayerPh_GL layer = mGLSurfaceView.getRenderLayer();
+				layer.setPosition(layer.getX() + offsetX, layer.getY() + offsetY);
+				
+				m_mousePressPosition.SetPoint((int)event.getX(), (int)event.getY());
+				mGLSurfaceView.update();
+		    }
+			break;
+		case MotionEvent.ACTION_POINTER_DOWN:
+			oldScale = mGLSurfaceView.getRenderLayer().getContentsScale();
+			oldDist = spacing(event);//两点按下时的距离  
+			mGLSurfaceView.getRenderLayer().setContentsFrozen(true);
+			break;
+		case MotionEvent.ACTION_UP:
+			mGLSurfaceView.getRenderLayer().setContentsFrozen(false);
+			break;
 		}
 		
 		return super.onTouchEvent(event);
 	}
+	
+	private float spacing(MotionEvent event) {  
+	    float x = event.getX(0) - event.getX(1);  
+	    float y = event.getY(0) - event.getY(1);  
+	    return FloatMath.sqrt(x * x + y * y);  
+	}  
 
 }
