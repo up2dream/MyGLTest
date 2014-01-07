@@ -8,8 +8,6 @@ import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import javax.microedition.khronos.opengles.GL11;
-
 import android.util.Log;
 import cn.wps.moffice.presentation.sal.drawing.Point;
 import cn.wps.moffice.presentation.sal.drawing.PointF;
@@ -50,9 +48,6 @@ public class TiledBackingStore {
     private boolean mSupportsAlpha = false;
     private boolean mPendingTileCreation = false;
     
-    private int mX;
-    private int mY;
-	    
     private Timer mTileBufferUpdateTimer = new Timer("tileBufferUpdate");
     private Timer mBackingStoreUpdateTimer = new Timer("backingStoreUpdate");
     
@@ -73,27 +68,6 @@ public class TiledBackingStore {
 		return mTextureBuffer;
 	}
 
-	public int getX() {
-		return mX;
-	}
-	
-	public void setX(int x) {
-		mX = x;
-	}
-	
-	public int getY() {
-		return mY;
-	}
-	
-	public void setY(int y) {
-		mY = y;
-	}
-	
-	public void setPosition(int x, int y) {
-		mX = x;
-		mY = y;
-	}
-	
 	public ITiledBackingStoreBackend getBackend() {
 		return mBackend;
 	}
@@ -219,7 +193,7 @@ public class TiledBackingStore {
 	    startTileBufferUpdateTimer();
 	}
     
-    public void paint(GLCanvas canvas, final Rect rect) {
+    public void paint(GLCanvas canvas, int offsetX, int offsetY, final Rect rect) {
 //        Rect dirtyRect = mapFromContents(rect, mPendingScale == 0 ? mContentsScale : mPendingScale);
         Rect dirtyRect = mapFromContents(rect);
 
@@ -232,7 +206,7 @@ public class TiledBackingStore {
                 ITile currentTile = getTileAt(currentCoordinate);
                 if (currentTile != null && currentTile.isReadyToPaint()) {
                 	float scaleFactor = mPendingScale == 0 ? 1 : mPendingScale / mContentsScale;
-                    currentTile.paint(canvas, dirtyRect, scaleFactor);
+                    currentTile.paint(canvas, offsetX, offsetY, dirtyRect, scaleFactor);
                 } else {
                     Rect tileRect = tileRectForCoordinate(currentCoordinate);
                     Rect target = Rect.intersect(tileRect, dirtyRect);
@@ -240,8 +214,11 @@ public class TiledBackingStore {
                         continue;
                     
                     float scaleFactor = mPendingScale == 0 ? 1 : mPendingScale / mContentsScale;
-                    mBackend.paintCheckerPattern(canvas, mX + target.getLeft() * scaleFactor, mY + target.getTop() * scaleFactor, 
-                    		target.getWidth() * scaleFactor, target.getHeight() * scaleFactor);
+                    float left = offsetX + target.getLeft() * scaleFactor;
+                    float top = offsetY + target.getTop() * scaleFactor;
+                    float width = target.getWidth() * scaleFactor;
+                    float height = target.getHeight() * scaleFactor;
+                    canvas.drawTexture(mTextureBuffer.getCheckerTextureID(canvas.getGL(), (int)width, (int)height), left, top, width, height);
                 }
             }
         }

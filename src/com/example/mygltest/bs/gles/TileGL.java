@@ -88,9 +88,9 @@ public class TileGL implements ITile {
 	}
 
 	@Override
-	public void paint(GLCanvas canvas, Rect rt, float scaleFactor) {
+	public void paint(GLCanvas canvas, int offsetX, int offsetY, Rect rt, float scaleFactor) {
 		canvas.drawTexture(mFrontTextureID, 
-				mBS.getX() + mRect.getLeft() * scaleFactor, mBS.getY() + mRect.getTop() * scaleFactor, 
+				offsetX + mRect.getLeft() * scaleFactor, offsetY + mRect.getTop() * scaleFactor, 
 				mRect.getWidth() * scaleFactor, mRect.getHeight() * scaleFactor);
 	}
 

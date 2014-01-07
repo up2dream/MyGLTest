@@ -68,16 +68,10 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	
 	@Override
 	public void onDrawFrame(GL10 gl) {
-		// clear Screen and Depth Buffer
-		gl.glClear(GL10.GL_COLOR_BUFFER_BIT | GL10.GL_DEPTH_BUFFER_BIT);
+		mCanvas.preset();
 
-		// Reset the Modelview Matrix
-		gl.glLoadIdentity();
-		
 		mTextureBuffer.updateTexture((GL11)gl);
 
-		mCanvas.preset();
-		
 		paintGL();
 
 //		square1.draw(gl);
@@ -85,11 +79,11 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 //		square2.draw(gl);
 		
 //		paintGL();
-//		triangle.draw(gl);
-		
-//	    GLPaint paint = new GLPaint();
-//	    paint.setColor(Color.GREEN);
-//	    mGLCanvas.drawLine(0, 0, 300, 300, paint);
+		triangle.draw(gl);
+		mCanvas.setFillColor(0, 1, 0, 1);
+		mCanvas.setLineColor(0, 0, 1, 1);
+		mCanvas.setLineWidth(2);
+		mCanvas.drawRect(20, 20, 100, 100, true);
 	}
 
 	@Override

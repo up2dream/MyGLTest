@@ -19,36 +19,63 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 	private Rect mVisibleRect = new Rect();
 	private Rect mContentsRect = new Rect();
 	private Color mBgColor = Color.parse("#7F0000FF");
+	private int mX;
+	private int mY;
+	private int mWidth;
+	private int mHeight;
 	
 	public RenderLayerPh_GL(TextureBuffer textureBuffer) {
 		TiledBackingStoreBackendGL backend = new TiledBackingStoreBackendGL();
 		mBS = new TiledBackingStore(this, backend, textureBuffer);
 		backend.init(mBS);
 		
-		mBS.setPosition(200, 200);
+		setPosition(200, 200);
+		setSize(1000, 1000);
 		
 		mVisibleRect.setRect(100, 100, 1000, 1000);
 		mContentsRect.setRect(0, 0, 4000, 3000);
 	}
 	
 	public int getX() {
-		return mBS.getX();
+		return mX;
 	}
 	
 	public void setX(int x) {
-		mBS.setX(x);
+		mX = x;
 	}
 	
 	public int getY() {
-		return mBS.getY();
+		return mY;
 	}
 	
 	public void setY(int y) {
-		mBS.setY(y);
+		mY = y;
+	}
+	
+	public int getWidth() {
+		return mWidth;
+	}
+	
+	public void setWidth(int width) {
+		mWidth = width;
+	}
+	
+	public int getHeight() {
+		return mHeight;
+	}
+	
+	public void setHeight(int height) {
+		mHeight = height;
 	}
 	
 	public void setPosition(int x, int y) {
-		mBS.setPosition(x, y);
+		mX = x;
+		mY = y;
+	}
+	
+	public void setSize(int width, int height) {
+		mWidth = width;
+		mHeight = height;
 	}
 	
 	@Override
@@ -67,7 +94,7 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 		paint.setShader(mLinearGradient);
 		canvas.clipRect(rect.getLeft(), rect.getTop(), rect.getRight(), rect.getBottom());
 		canvas.drawRect(mContentsRect.getLeft() * contentsScale, mContentsRect.getTop() * contentsScale, 
-				mContentsRect.getRight() * contentsScale, mContentsRect.getBottom() * contentsScale, paint);  
+				mContentsRect.getRight() * contentsScale, mContentsRect.getBottom() * contentsScale, paint);
 	}
 
 	@Override
@@ -99,7 +126,12 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 	}
 
 	public void paint(GLCanvas canvas) {
-		mBS.paint(canvas, tbsGetVisibleRect());
+		mBS.paint(canvas, mX, mY, tbsGetVisibleRect());
+		
+		canvas.setLineColor(0, 0, 1, 1);
+		canvas.setLineWidth(2);
+		
+		canvas.drawRect(mX, mY, mVisibleRect.getWidth(), mVisibleRect.getHeight(), false);
 	}
 	
 	public void setContentsScale(float scale) {

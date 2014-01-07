@@ -13,7 +13,7 @@ public interface ITile {
 	public Collection<Rect> updateBackBuffer();
 	public void swapBackBufferToFront();
 	public boolean isReadyToPaint();
-	public void paint(GLCanvas canvas, final Rect rt, float scaleFactor);
+	public void paint(GLCanvas canvas, int offsetX, int offsetY, final Rect rt, float scaleFactor);
 	public Coordinate coordinate();
 	public Rect rect();
 	public void resize(final Size sz);

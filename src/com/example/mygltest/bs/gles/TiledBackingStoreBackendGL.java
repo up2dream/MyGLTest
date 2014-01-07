@@ -27,12 +27,6 @@ public class TiledBackingStoreBackendGL implements ITiledBackingStoreBackend {
 		return new TileGL(mTiledBackingStore, coordinate);
 	}
 
-	@Override
-	public void paintCheckerPattern(GLCanvas canvas, final float left, final float top, final float width, final float height) {
-		canvas.drawTexture(mTextureBuffer.getCheckerTextureID(canvas.getGL(), (int)width, (int)height), mTiledBackingStore.getX() + left, mTiledBackingStore.getY() + top, width, height);
-		
-	}
-	
 	public int writeToTextureSync(int textureID, Bitmap bitmap) {
 		return mTextureBuffer.writeToTextureSync(textureID, bitmap);
 	}
