@@ -5,7 +5,6 @@ import javax.microedition.khronos.opengles.GL10;
 import javax.microedition.khronos.opengles.GL11;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLSurfaceView.Renderer;
 import android.util.Log;
@@ -14,9 +13,7 @@ import cn.wps.moffice.presentation.sal.drawing.Size;
 import com.example.mygltest.Square;
 import com.example.mygltest.Triangle;
 import com.example.mygltest.bs.gles.TextureBuffer;
-import com.example.mygltest.util.GLCanvas;
-import com.example.mygltest.util.GLPaint;
-import com.example.mygltest.util.IGLCanvas;
+import com.example.mygltest.gl.GLCanvas;
 
 public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 
@@ -26,7 +23,7 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	
 	private TextureBuffer mTextureBuffer;
 
-	private GL11 mGL;
+	private GLCanvas mCanvas;
 	private Size mSize = new Size();
 	
 	private Square square1 = new Square();
@@ -34,7 +31,6 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	private Triangle triangle = new Triangle();
 	
 	private RenderLayerPh_GL mLayer;
-	private IGLCanvas mGLCanvas;
 
 	/** Constructor to set the handed over context */
 	public BSGLSurfaceView(Context context) {
@@ -54,47 +50,20 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 		return mLayer;
 	}
 	
-	public void initializeGL() {
-		mGL.glEnable(GL11.GL_BLEND);
-		mGL.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-	    mGL.glDisable(GL11.GL_DEPTH_TEST);
-	    mGL.glEnable(GL11.GL_TEXTURE_2D);
-	}
-	
 	public void paintGL() {
-	    mGL.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-	    mGL.glClear(GL11.GL_COLOR_BUFFER_BIT);
-
-	    // For very fast zooming in and out, do not apply any expensive filter.
-	    mGL.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-	    mGL.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-
-	    // Ensure we would have seamless transition between adjecent tiles.
-	    mGL.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP_TO_EDGE);
-	    mGL.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP_TO_EDGE);
-
-	    mTextureBuffer.drawChecker(mGL, 100, 100, 1500, 1000);
-
-	    mLayer.paint(mGL);
-	}
-	
-	public void resizeGL(int width, int height) {
-	    // Ensure that (0,0) is top left and (width - 1, height -1) is bottom right.
-	    mGL.glViewport(0, 0, width, height);
+		mCanvas.drawColor(1.0f, 1.0f, 1.0f, 1.0f);
 	    
-	    mGL.glMatrixMode(GL11.GL_PROJECTION);
-	    mGL.glLoadIdentity();
-	    mGL.glOrthof(0, width, height, 0, -1, 1); // ?glOrtho
-	    mGL.glMatrixMode(GL11.GL_MODELVIEW);
-	    mGL.glLoadIdentity();
+	    mCanvas.drawTexture(mTextureBuffer.getCheckerTextureID(mCanvas.getGL(), 1500, 1000), 100, 100, 1500, 1000);
+
+	    mLayer.paint(mCanvas);
 	}
 	
 	public void update() {
 		requestRender();
 	}
 	
-	public GL11 getGL() {
-		return mGL;
+	public GLCanvas getCanvas() {
+		return mCanvas;
 	}
 	
 	@Override
@@ -107,6 +76,8 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 		
 		mTextureBuffer.updateTexture((GL11)gl);
 
+		mCanvas.preset();
+		
 		paintGL();
 
 //		square1.draw(gl);
@@ -129,27 +100,23 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 		
 		mSize.SetSize(width, height);
 
-		resizeGL(width, height);
+		mCanvas.resize(width, height);
 	}
 
 	@Override
 	public void onSurfaceCreated(GL10 gl1, EGLConfig config) {
 		GL11 gl = (GL11) gl1;
-        if (mGL == null) {
-            mGL = gl;
-//            mGLCanvas = new GLCanvas(mGL);
+        if (mCanvas == null) {
+            mCanvas = new GLCanvas(gl);
         } else {
             // The GL Object has changed.
-            Log.i(TAG, "GLObject has changed from " + mGL + " to " + gl);
-            mGL = gl;
-//            mGLCanvas = new GLCanvas(mGL);
+            Log.i(TAG, "GLObject has changed from " + gl1 + " to " + gl);
+            mCanvas.destroy();
         }
 	        
 		// Load the texture for the square
 		square1.loadGLTexture(gl, getContext());
 		square2.loadGLTexture(gl, getContext());
-        
-        initializeGL();
 	}
 }
 

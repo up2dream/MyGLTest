@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.mygltest.util;
+package com.example.mygltest.util_tmp;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;

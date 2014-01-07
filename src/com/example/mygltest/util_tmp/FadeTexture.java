@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.mygltest.util;
+package com.example.mygltest.util_tmp;
 
 // FadeTexture is a texture which fades the given texture along the time.
 public abstract class FadeTexture implements Texture {

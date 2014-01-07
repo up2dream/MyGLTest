@@ -1,8 +1,5 @@
 package com.example.mygltest.bs.gles;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -13,39 +10,21 @@ import java.util.concurrent.LinkedBlockingQueue;
 import javax.microedition.khronos.opengles.GL10;
 import javax.microedition.khronos.opengles.GL11;
 
-import com.example.mygltest.bs.BSGLSurfaceView;
-import com.example.mygltest.bs.TiledBackingStore;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Color;
 import android.opengl.GLUtils;
 import cn.wps.moffice.presentation.sal.base.Triple;
-import cn.wps.moffice.presentation.sal.drawing.PointF;
+
+import com.example.mygltest.bs.BSGLSurfaceView;
+import com.example.mygltest.bs.TiledBackingStore;
 
 public class TextureBuffer {
 	private BSGLSurfaceView mView;
-    public float mZoomFactor;
     private int[] mTexture_array_used_in_remove_method = new int [1];
     private Set<Integer> mTextures = new HashSet<Integer>();
     private BlockingQueue<Triple<Integer, Bitmap, BlockingQueue<Integer>>> mTexturesToBeBinding = new LinkedBlockingQueue<Triple<Integer, Bitmap, BlockingQueue<Integer>>>();
     private int mCheckerTextureID = 0;
-	private FloatBuffer vertexBuffer;	// buffer holding the vertices
-
-	private float vertices[] = {
-			0.0f, 0.0f,  0.0f,		// V1 - top left
-			0.0f, 1.0f,  0.0f,		// V2 - bottom left
-			1.0f, 0.0f,  0.0f,		// V3 - top right
-			1.0f, 1.0f,  0.0f		// V4 - bottom right
-	};
-
-	private FloatBuffer textureBuffer;	// buffer holding the texture coordinates
-	private float texture[] = {
-			// Mapping coordinates for the vertices
-			0.0f, 0.0f,		// top left	    (V1)
-			0.0f, 1.0f,		// bottom left	(V2)
-			1.0f, 0.0f,		// top right	(V3)
-			1.0f, 1.0f,		// bottom right	(V4)
-	};
 	
     private Bitmap createCheckerboardPattern(int dimW, int dimH) {
     	Bitmap pattern = Bitmap.createBitmap(dimW, dimH, Config.ARGB_8888);
@@ -63,20 +42,6 @@ public class TextureBuffer {
     
     public TextureBuffer(BSGLSurfaceView view) {
     	mView = view;
-    	
-    	mZoomFactor = 0.1f;
-    	
-		ByteBuffer byteBuffer = ByteBuffer.allocateDirect(vertices.length * 4);
-		byteBuffer.order(ByteOrder.nativeOrder());
-		vertexBuffer = byteBuffer.asFloatBuffer();
-		vertexBuffer.put(vertices);
-		vertexBuffer.position(0);
-
-		byteBuffer = ByteBuffer.allocateDirect(texture.length * 4);
-		byteBuffer.order(ByteOrder.nativeOrder());
-		textureBuffer = byteBuffer.asFloatBuffer();
-		textureBuffer.put(texture);
-		textureBuffer.position(0);
     }
     
 	public int bindTexture(GL11 gl, Bitmap bitmap) {
@@ -148,56 +113,14 @@ public class TextureBuffer {
     	mTexture_array_used_in_remove_method[0] = textureID;
         gl.glDeleteTextures(1, mTexture_array_used_in_remove_method, 0);
     }
-
-    public void draw(GL11 gl, int textureID, float x, float y, float w, float h) {
-    	gl.glEnable(GL11.GL_TEXTURE_2D);
-    	gl.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
-	    
-	    vertexBuffer.put(0, x);
-	    vertexBuffer.put(1, y);
-	    vertexBuffer.put(3, x);
-	    vertexBuffer.put(4, y + h);
-	    vertexBuffer.put(6, x + w);
-	    vertexBuffer.put(7, y);
-	    vertexBuffer.put(9, x + w);
-	    vertexBuffer.put(10, y + h);
-	    
-	    // Point to our buffers
-	    gl.glEnableClientState(GL11.GL_VERTEX_ARRAY);
-	    gl.glEnableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
-
- 		// Set the face rotation
-	    gl.glFrontFace(GL11.GL_CW);
-
- 		// Point to our vertex buffer
- 		vertexBuffer.position(0);
- 		gl.glVertexPointer(3, GL11.GL_FLOAT, 0, vertexBuffer);
- 		textureBuffer.position(0);
- 		gl.glTexCoordPointer(2, GL11.GL_FLOAT, 0, textureBuffer);
-
- 		// Draw the vertices as triangle strip
- 		gl.glDrawArrays(GL11.GL_TRIANGLE_STRIP, 0, vertices.length / 3);
-
- 		//Disable the client state before leaving
- 		gl.glDisableClientState(GL11.GL_VERTEX_ARRAY);
- 		gl.glDisableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
- 		gl.glDisable(GL11.GL_TEXTURE_2D);
-    }
     
-    public void drawChecker(GL11 gl, float x, float y, float w, float h) {
+    public int getCheckerTextureID(GL11 gl, int w, int h) {
     	if (mCheckerTextureID == 0) {
     		Bitmap checker = createCheckerboardPattern((int)w, (int)h);
     		mCheckerTextureID = bindTexture(gl, checker);
     		checker.recycle();
     	}
     	
-    	draw(gl, mCheckerTextureID, x, y, w, h);
-    }
-    
-    public void setViewModelMatrix(GL11 gl, final  PointF viewOffset, float viewZoomFactor) {
-    	gl.glMatrixMode(GL11.GL_MODELVIEW);
-    	gl.glLoadIdentity();
-    	gl.glTranslatef(viewOffset.getX(), viewOffset.getY(), 0);
-    	gl.glScalef(viewZoomFactor / mZoomFactor, viewZoomFactor / mZoomFactor, 1f);
+    	return mCheckerTextureID;
     }
 };

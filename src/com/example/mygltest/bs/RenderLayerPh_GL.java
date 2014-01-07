@@ -2,17 +2,16 @@ package com.example.mygltest.bs;
 
 import java.util.List;
 
-import javax.microedition.khronos.opengles.GL11;
-
-import com.example.mygltest.bs.gles.TextureBuffer;
-import com.example.mygltest.bs.gles.TiledBackingStoreBackendGL;
-
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Shader;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.color.Color;
+
+import com.example.mygltest.bs.gles.TextureBuffer;
+import com.example.mygltest.bs.gles.TiledBackingStoreBackendGL;
+import com.example.mygltest.gl.GLCanvas;
 
 public class RenderLayerPh_GL extends TiledBackingStoreClient {
 
@@ -99,8 +98,8 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 		return mBgColor ;
 	}
 
-	public void paint(GL11 gl) {
-		mBS.paint(gl, tbsGetVisibleRect());
+	public void paint(GLCanvas canvas) {
+		mBS.paint(canvas, tbsGetVisibleRect());
 	}
 	
 	public void setContentsScale(float scale) {

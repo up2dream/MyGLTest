@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.mygltest.util;
+package com.example.mygltest.util_tmp;
 
 public class IntArray {
 	private static final int INIT_CAPACITY = 8;

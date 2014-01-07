@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.mygltest.util;
+package com.example.mygltest.util_tmp;
 
 // Texture is a rectangular image which can be drawn on GLCanvas.
 // The isOpaque() function gives a hint about whether the texture is opaque,

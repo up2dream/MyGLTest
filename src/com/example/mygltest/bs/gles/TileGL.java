@@ -3,25 +3,22 @@ package com.example.mygltest.bs.gles;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import javax.microedition.khronos.opengles.GL11;
-
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
-import android.graphics.PorterDuff.Mode;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
 import com.example.mygltest.bs.Coordinate;
 import com.example.mygltest.bs.ITile;
 import com.example.mygltest.bs.TiledBackingStore;
+import com.example.mygltest.gl.GLCanvas;
 
 public class TileGL implements ITile {
 	private Coordinate mCoordinate = new Coordinate();
-	private TextureBuffer mTextureBuffer;
 	private int mFrontTextureID;
 	private int mBackTextureID;
 	private TiledBackingStore mBS;
@@ -32,7 +29,6 @@ public class TileGL implements ITile {
 		mBS = bs;
 		mCoordinate.SetPoint(coordinate.getX(), coordinate.getY());
 		
-		mTextureBuffer = mBS.getTextureBuffer();
 		int tileW = mBS.getTileSize().getWidth();
 		int tileH = mBS.getTileSize().getHeight();
 		
@@ -92,8 +88,9 @@ public class TileGL implements ITile {
 	}
 
 	@Override
-	public void paint(GL11 gl, Rect rt, float scaleFactor) {
-		mTextureBuffer.draw(gl, mFrontTextureID, mBS.getX() + mRect.getLeft() * scaleFactor, mBS.getY() + mRect.getTop() * scaleFactor, 
+	public void paint(GLCanvas canvas, Rect rt, float scaleFactor) {
+		canvas.drawTexture(mFrontTextureID, 
+				mBS.getX() + mRect.getLeft() * scaleFactor, mBS.getY() + mRect.getTop() * scaleFactor, 
 				mRect.getWidth() * scaleFactor, mRect.getHeight() * scaleFactor);
 	}
 

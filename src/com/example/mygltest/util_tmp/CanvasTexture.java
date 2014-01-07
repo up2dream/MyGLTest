@@ -14,24 +14,26 @@
  * limitations under the License.
  */
 
-package com.example.mygltest.util;
+package com.example.mygltest.util_tmp;
 
-import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
 
-// ResourceTexture is a texture whose Bitmap is decoded from a resource.
-// By default ResourceTexture is not opaque.
-public class ResourceTexture extends UploadedTexture {
+// CanvasTexture is a texture whose content is the drawing on a Canvas.
+// The subclasses should override onDraw() to draw on the bitmap.
+// By default CanvasTexture is not opaque.
+abstract class CanvasTexture extends UploadedTexture {
+	protected Canvas mCanvas;
+	private final Config mConfig;
 
-	protected final Context mContext;
-	protected final int mResId;
-
-	public ResourceTexture(final Context context, final int resId) {
-		mContext = Utils.checkNotNull(context);
-		mResId = resId;
+	public CanvasTexture(final int width, final int height) {
+		mConfig = Config.ARGB_8888;
+		setSize(width, height);
 		setOpaque(false);
 	}
+
+	abstract protected void onDraw(Canvas canvas, Bitmap backing);
 
 	@Override
 	protected void onFreeBitmap(final Bitmap bitmap) {
@@ -42,8 +44,9 @@ public class ResourceTexture extends UploadedTexture {
 
 	@Override
 	protected Bitmap onGetBitmap() {
-		final BitmapFactory.Options options = new BitmapFactory.Options();
-		options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-		return BitmapFactory.decodeResource(mContext.getResources(), mResId, options);
+		final Bitmap bitmap = Bitmap.createBitmap(mWidth, mHeight, mConfig);
+		mCanvas = new Canvas(bitmap);
+		onDraw(mCanvas, bitmap);
+		return bitmap;
 	}
 }

@@ -1,13 +1,12 @@
 package com.example.mygltest.bs.gles;
 
-import javax.microedition.khronos.opengles.GL11;
-
 import android.graphics.Bitmap;
 
 import com.example.mygltest.bs.Coordinate;
 import com.example.mygltest.bs.ITile;
 import com.example.mygltest.bs.ITiledBackingStoreBackend;
 import com.example.mygltest.bs.TiledBackingStore;
+import com.example.mygltest.gl.GLCanvas;
 
 public class TiledBackingStoreBackendGL implements ITiledBackingStoreBackend {
 	
@@ -29,8 +28,9 @@ public class TiledBackingStoreBackendGL implements ITiledBackingStoreBackend {
 	}
 
 	@Override
-	public void paintCheckerPattern(GL11 gl, final float left, final float top, final float width, final float height) {
-		mTextureBuffer.drawChecker(gl, mTiledBackingStore.getX() + left, mTiledBackingStore.getY() + top, width, height);
+	public void paintCheckerPattern(GLCanvas canvas, final float left, final float top, final float width, final float height) {
+		canvas.drawTexture(mTextureBuffer.getCheckerTextureID(canvas.getGL(), (int)width, (int)height), mTiledBackingStore.getX() + left, mTiledBackingStore.getY() + top, width, height);
+		
 	}
 	
 	public int writeToTextureSync(int textureID, Bitmap bitmap) {

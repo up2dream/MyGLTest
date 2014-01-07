@@ -18,6 +18,7 @@ import cn.wps.moffice.presentation.sal.drawing.RectF;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
 import com.example.mygltest.bs.gles.TextureBuffer;
+import com.example.mygltest.gl.GLCanvas;
 
 public class TiledBackingStore {
 	
@@ -218,7 +219,7 @@ public class TiledBackingStore {
 	    startTileBufferUpdateTimer();
 	}
     
-    public void paint(GL11 gl, final Rect rect) {
+    public void paint(GLCanvas canvas, final Rect rect) {
 //        Rect dirtyRect = mapFromContents(rect, mPendingScale == 0 ? mContentsScale : mPendingScale);
         Rect dirtyRect = mapFromContents(rect);
 
@@ -231,7 +232,7 @@ public class TiledBackingStore {
                 ITile currentTile = getTileAt(currentCoordinate);
                 if (currentTile != null && currentTile.isReadyToPaint()) {
                 	float scaleFactor = mPendingScale == 0 ? 1 : mPendingScale / mContentsScale;
-                    currentTile.paint(gl, dirtyRect, scaleFactor);
+                    currentTile.paint(canvas, dirtyRect, scaleFactor);
                 } else {
                     Rect tileRect = tileRectForCoordinate(currentCoordinate);
                     Rect target = Rect.intersect(tileRect, dirtyRect);
@@ -239,7 +240,7 @@ public class TiledBackingStore {
                         continue;
                     
                     float scaleFactor = mPendingScale == 0 ? 1 : mPendingScale / mContentsScale;
-                    mBackend.paintCheckerPattern(gl, mX + target.getLeft() * scaleFactor, mY + target.getTop() * scaleFactor, 
+                    mBackend.paintCheckerPattern(canvas, mX + target.getLeft() * scaleFactor, mY + target.getTop() * scaleFactor, 
                     		target.getWidth() * scaleFactor, target.getHeight() * scaleFactor);
                 }
             }
