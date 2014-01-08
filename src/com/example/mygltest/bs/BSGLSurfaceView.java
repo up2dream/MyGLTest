@@ -36,6 +36,8 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	public BSGLSurfaceView(Context context) {
 		super(context);
 		
+		setRenderer(this);
+		
 	    mTextureBuffer = new TextureBuffer(this);
 	    
 	    
@@ -95,6 +97,8 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 		mSize.SetSize(width, height);
 
 		mCanvas.resize(width, height);
+		
+		update();
 	}
 
 	@Override

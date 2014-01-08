@@ -5,13 +5,13 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.ConfigurationInfo;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
-import android.os.CountDownTimer;
 import android.util.FloatMath;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -19,7 +19,6 @@ import cn.wps.moffice.presentation.sal.drawing.Point;
 
 import com.example.mygltest.bs.BSGLSurfaceView;
 import com.example.mygltest.bs.RenderLayerPh_GL;
-import com.example.mygltest.bs.SimpleDataSource;
 
 public class MainActivity extends Activity {
 
@@ -27,7 +26,8 @@ public class MainActivity extends Activity {
 
 	private BSGLSurfaceView mGLSurfaceView;
 	private float oldDist = 0;
-	private float oldScale = 0;
+	private float oldWidth = 0;
+	private float oldHeight = 0;
 
 	public static MainActivity getInstance() {
 		return sInstance;
@@ -53,12 +53,12 @@ public class MainActivity extends Activity {
 	 
 	        // Set the renderer to our demo renderer, defined below.
 //	        mGLSurfaceView.setRenderer(new MyGLRenderer(mGLSurfaceView));
-	        mGLSurfaceView.setRenderer(mGLSurfaceView);
+//	        mGLSurfaceView.setRenderer(mGLSurfaceView);
 	    } else {
 	        // This is where you could create an OpenGL ES 1.x compatible
 	        // renderer if you wanted to support both ES 1 and ES 2.
 //	        mGLSurfaceView.setRenderer(new MyGLRenderer(mGLSurfaceView));
-	        mGLSurfaceView.setRenderer(mGLSurfaceView);
+//	        mGLSurfaceView.setRenderer(mGLSurfaceView);
 	    }
 	 
 	    mGLSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
@@ -89,24 +89,22 @@ public class MainActivity extends Activity {
 		return true;
 	}
 	
-	private float scale = 1f;
 	@Override
 	public boolean onMenuItemSelected(int featureId, MenuItem item) {
+		RenderLayerPh_GL renderLayer = mGLSurfaceView.getRenderLayer();
 		switch (item.getItemId()) {
 		case R.id.request_render:
 			mGLSurfaceView.requestRender();
 			return true;
 		case R.id.draw_bs:
-			mGLSurfaceView.getRenderLayer().setContentsScale(.2f);
+			renderLayer.setSize(800, 800);
 			
 			return true;
 		case R.id.zoom_out:
-			scale = mGLSurfaceView.getRenderLayer().getContentsScale();
-			mGLSurfaceView.getRenderLayer().setContentsScale(scale * .7f);
+			renderLayer.setSize((int)(renderLayer.getWidth() * .7f), (int)(renderLayer.getHeight() * .7f));
 			return true;
 		case R.id.zoom_in:
-			scale = mGLSurfaceView.getRenderLayer().getContentsScale();
-			mGLSurfaceView.getRenderLayer().setContentsScale(scale * 1.3f);
+			renderLayer.setSize((int)(renderLayer.getWidth() * 1.3f), (int)(renderLayer.getHeight() * 1.3f));
 			return true;
 		case R.id.draw_simple:
 			Bitmap bitmap = Bitmap.createBitmap(200, 200, Config.ARGB_8888);
@@ -132,7 +130,10 @@ public class MainActivity extends Activity {
 			if (event.getPointerCount() > 1) {  
 		        float newDist = spacing(event);  
 		        if (Math.abs(newDist - oldDist) > 1) {
-					mGLSurfaceView.getRenderLayer().setContentsScale(oldScale * (newDist / oldDist));
+					float scale = newDist / oldDist;
+					Log.d("test", "scale " + scale);
+					RenderLayerPh_GL layer = mGLSurfaceView.getRenderLayer();
+					layer.setSize((int)(oldWidth * scale), (int)(oldHeight * scale));
 					mGLSurfaceView.update();
 		        }  
 		        break;  
@@ -147,7 +148,8 @@ public class MainActivity extends Activity {
 		    }
 			break;
 		case MotionEvent.ACTION_POINTER_DOWN:
-			oldScale = mGLSurfaceView.getRenderLayer().getContentsScale();
+			oldWidth = mGLSurfaceView.getRenderLayer().getWidth();
+			oldHeight = mGLSurfaceView.getRenderLayer().getHeight();
 			oldDist = spacing(event);//两点按下时的距离  
 			mGLSurfaceView.getRenderLayer().setContentsFrozen(true);
 			break;

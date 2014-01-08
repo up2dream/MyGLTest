@@ -16,7 +16,6 @@ import com.example.mygltest.gl.GLCanvas;
 public class RenderLayerPh_GL extends TiledBackingStoreClient {
 
 	private TiledBackingStore mBS;
-	private Rect mVisibleRect = new Rect();
 	private Rect mContentsRect = new Rect();
 	private Color mBgColor = Color.parse("#7F0000FF");
 	private int mX;
@@ -28,12 +27,13 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 		TiledBackingStoreBackendGL backend = new TiledBackingStoreBackendGL();
 		mBS = new TiledBackingStore(this, backend, textureBuffer);
 		backend.init(mBS);
+
+		mContentsRect.setRect(0, 0, 4000, 3000);
+
+		mBS.setContentsFrozen(true);
 		
 		setPosition(200, 200);
 		setSize(1000, 1000);
-		
-		mVisibleRect.setRect(100, 100, 1000, 1000);
-		mContentsRect.setRect(0, 0, 4000, 3000);
 	}
 	
 	public int getX() {
@@ -76,6 +76,13 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 	public void setSize(int width, int height) {
 		mWidth = width;
 		mHeight = height;
+		float scaleW = mWidth / (float)mContentsRect.getWidth();
+		float scaleH = mHeight / (float)mContentsRect.getHeight();
+		if (scaleW > scaleH) {
+			mBS.setContentsScale(scaleH);
+		} else {
+			mBS.setContentsScale(scaleW);
+		}
 	}
 	
 	@Override
@@ -109,15 +116,7 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 
 	@Override
 	public Rect tbsGetVisibleRect() {
-		Rect visibleRect = mVisibleRect.clone();
-		
-		int left = (int) (visibleRect.getLeft()/mBS.getContentsScale());
-		int top = (int)(visibleRect.getTop()/mBS.getContentsScale());
-		int width = (int)(visibleRect.getWidth()/mBS.getContentsScale());
-		int height = (int)(visibleRect.getHeight()/mBS.getContentsScale());
-		visibleRect.setRect(left, top, width, height);
-		
-		return visibleRect;
+		return mContentsRect.clone();
 	}
 
 	@Override
@@ -131,19 +130,7 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 		canvas.setLineColor(0, 0, 1, 1);
 		canvas.setLineWidth(2);
 		
-		canvas.drawRect(mX, mY, mVisibleRect.getWidth(), mVisibleRect.getHeight(), false);
-	}
-	
-	public void setContentsScale(float scale) {
-		mBS.setContentsScale(scale);
-	}
-	
-	public float getContentsScale() {
-		return mBS.getContentsScale();
-	}
-	
-	public boolean isContentsFrozen() {
-		return mBS.isContentsFrozen(); 
+		canvas.drawRect(mX, mY, mWidth, mHeight, false);
 	}
 	
 	public void setContentsFrozen(boolean freeze) {
