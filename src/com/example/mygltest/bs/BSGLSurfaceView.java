@@ -55,7 +55,7 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 	public void paintGL() {
 		mCanvas.drawColor(1.0f, 1.0f, 1.0f, 1.0f);
 	    
-	    mCanvas.drawTexture(mTextureBuffer.getCheckerTextureID(mCanvas.getGL(), 1500, 1000), 100, 100, 1500, 1000);
+//	    mCanvas.drawTexture(mTextureBuffer.getCheckerTextureID(mCanvas.getGL(), 1500, 1000), 100, 100, 1500, 1000);
 
 	    mLayer.paint(mCanvas);
 	}
@@ -81,7 +81,7 @@ public class BSGLSurfaceView extends GLSurfaceView implements Renderer {
 //		square2.draw(gl);
 		
 //		paintGL();
-		triangle.draw(gl);
+//		triangle.draw(gl);
 		mCanvas.setFillColor(0, 1, 0, 1);
 		mCanvas.setLineColor(0, 0, 1, 1);
 		mCanvas.setLineWidth(2);

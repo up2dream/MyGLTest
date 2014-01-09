@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Shader;
+import android.util.Log;
 import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.color.Color;
 
@@ -116,7 +117,14 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 
 	@Override
 	public Rect tbsGetVisibleRect() {
-		return mContentsRect.clone();
+		Rect visible = new Rect(-mX, -mY, 2560, 1600);
+		visible.intersect(new Rect(0, 0, mWidth, mHeight));
+		float scale = mWidth / (float)mContentsRect.getWidth();
+		visible.setLeft((int) (visible.getLeft() / scale));
+		visible.setTop((int) (visible.getTop() / scale));
+		visible.setWidth((int) (visible.getWidth() / scale));
+		visible.setHeight((int) (visible.getHeight() / scale));
+		return visible;
 	}
 
 	@Override
@@ -129,7 +137,6 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 		
 		canvas.setLineColor(0, 0, 1, 1);
 		canvas.setLineWidth(2);
-		
 		canvas.drawRect(mX, mY, mWidth, mHeight, false);
 	}
 	

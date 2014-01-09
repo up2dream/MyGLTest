@@ -27,7 +27,8 @@ public class TiledBackingStore {
 	private TiledBackingStoreClient mClient;
 	private ITiledBackingStoreBackend mBackend;
 	private	TextureBuffer mTextureBuffer;
-    private TileMap mTiles = new TileMap();
+    private TileMap mMainTiles = new TileMap();
+    private TileMap mBackTiles = new TileMap();
 
     private Size mTileSize = new Size(DEF_TILE_DIM, DEF_TILE_DIM);
     private float mCoverAreaMultiplier = 2.0f;
@@ -41,6 +42,7 @@ public class TiledBackingStore {
     private Rect mRect = new Rect();
 
     private float mContentsScale = 1.0f;
+    private float mOldScale = 1.0f;
     private float mPendingScale = 0;
 
     private boolean mCommitTileUpdatesOnIdleEventLoop = true;
@@ -143,7 +145,7 @@ public class TiledBackingStore {
 
 	    List<Rect> paintedArea = new ArrayList<Rect>();
 	    List<ITile> dirtyTiles = new ArrayList<ITile>();
-	    Iterator<Entry<Coordinate, ITile>> it = mTiles.entrySet().iterator();
+	    Iterator<Entry<Coordinate, ITile>> it = mMainTiles.entrySet().iterator();
 	    while (it.hasNext()) {
 	    	Entry<Coordinate, ITile> entry = it.next();
 	        if (!entry.getValue().isDirty())
@@ -164,6 +166,12 @@ public class TiledBackingStore {
 	        Collection<Rect> paintedRects = dirtyTiles.get(n).updateBackBuffer();
 	        paintedArea.addAll(paintedRects);
 	        dirtyTiles.get(n).swapBackBufferToFront();
+	        try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 	    }
 
 	    mClient.tbsPaintEnd(paintedArea);
@@ -194,7 +202,6 @@ public class TiledBackingStore {
 	}
     
     public void paint(GLCanvas canvas, int offsetX, int offsetY, final Rect rect) {
-//        Rect dirtyRect = mapFromContents(rect, mPendingScale == 0 ? mContentsScale : mPendingScale);
         Rect dirtyRect = mapFromContents(rect);
 
         Coordinate topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
@@ -233,7 +240,7 @@ public class TiledBackingStore {
     		return;
     	
     	sz.copyTo(mTileSize);
-	    mTiles.clear();
+	    mMainTiles.clear();
 	    startBackingStoreUpdateTimer();
     }
 
@@ -519,16 +526,17 @@ public class TiledBackingStore {
     }
 
     private void commitScaleChange() {
+    	mOldScale = mContentsScale;
     	mContentsScale = mPendingScale;
 	    mPendingScale = 0;
-	    mTiles.clear();
+//	    mTiles.clear(); // TODO why clear all? 
 	    coverWithTilesIfNeeded();
     }
 
     private boolean resizeEdgeTiles() {
     	boolean wasResized = false;
     	List<Coordinate> tilesToRemove = new ArrayList<Coordinate>();
-	    Iterator<Entry<Coordinate, ITile>> it = mTiles.entrySet().iterator();
+	    Iterator<Entry<Coordinate, ITile>> it = mMainTiles.entrySet().iterator();
 	    while (it.hasNext()) {
 	    	Entry<Coordinate, ITile> entry = it.next();
 	        Coordinate tileCoordinate = entry.getValue().coordinate();
@@ -555,7 +563,7 @@ public class TiledBackingStore {
         RectF keepRectF = keepRect.toRectF();
 
         List<Coordinate> toRemove = new ArrayList<Coordinate>();;
-        Iterator<Entry<Coordinate, ITile>> it = mTiles.entrySet().iterator();
+        Iterator<Entry<Coordinate, ITile>> it = mMainTiles.entrySet().iterator();
         while (it.hasNext()) {
         	Entry<Coordinate, ITile> entry = it.next();
             Coordinate coordinate = entry.getValue().coordinate();
@@ -571,19 +579,19 @@ public class TiledBackingStore {
     }
 
     private ITile getTileAt(final Coordinate coordinate) {
-    	return mTiles.get(coordinate);
+    	return mMainTiles.get(coordinate);
     }
     
     private ITile getTileAt(int x, int y) {
-    	return mTiles.get(new Coordinate(x, y)); // TODO effective problem
+    	return mMainTiles.get(new Coordinate(x, y)); // TODO effective problem
     }
     
     private void setTile(final Coordinate coordinate, ITile tile) {
-    	mTiles.put(coordinate, tile);
+    	mMainTiles.put(coordinate, tile);
     }
     
     private void removeTile(final Coordinate coordinate) {
-    	mTiles.remove(coordinate);
+    	mMainTiles.remove(coordinate);
     }
 
     private Rect visibleRect() {
