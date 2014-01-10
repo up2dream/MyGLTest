@@ -19,4 +19,9 @@ public class Coordinate extends Point {
 	public int hashCode() {
 		return getX()<<16 | getY();
 	}
+	
+	@Override
+	public String toString() {
+		return "(" + getX() + ", " + getY() + ")";
+	}
 }

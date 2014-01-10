@@ -1,5 +1,9 @@
 package com.example.mygltest;
 
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.LinkedBlockingQueue;
+
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;

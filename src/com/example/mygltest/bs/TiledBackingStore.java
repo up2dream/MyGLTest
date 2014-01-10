@@ -15,6 +15,7 @@ import cn.wps.moffice.presentation.sal.drawing.Rect;
 import cn.wps.moffice.presentation.sal.drawing.RectF;
 import cn.wps.moffice.presentation.sal.drawing.Size;
 
+import com.example.mygltest.bs.BSTaskTimer.BSTimerTask;
 import com.example.mygltest.bs.gles.TextureBuffer;
 import com.example.mygltest.gl.GLCanvas;
 
@@ -27,8 +28,8 @@ public class TiledBackingStore {
 	private TiledBackingStoreClient mClient;
 	private ITiledBackingStoreBackend mBackend;
 	private	TextureBuffer mTextureBuffer;
-    private TileMap mMainTiles = new TileMap();
-    private TileMap mBackTiles = new TileMap();
+    private TileBuffer mMainTiles;
+    private TileBuffer mScaleBufferTiles;
 
     private Size mTileSize = new Size(DEF_TILE_DIM, DEF_TILE_DIM);
     private float mCoverAreaMultiplier = 2.0f;
@@ -42,24 +43,22 @@ public class TiledBackingStore {
     private Rect mRect = new Rect();
 
     private float mContentsScale = 1.0f;
-    private float mOldScale = 1.0f;
     private float mPendingScale = 0;
 
     private boolean mCommitTileUpdatesOnIdleEventLoop = true;
     private boolean mContentsFrozen = false;
     private boolean mSupportsAlpha = false;
     private boolean mPendingTileCreation = false;
+    private boolean mUpdateFlowBreaked = false;
     
-    private Timer mTileBufferUpdateTimer = new Timer("tileBufferUpdate");
-    private Timer mBackingStoreUpdateTimer = new Timer("backingStoreUpdate");
+    private BSTaskTimer mUpdateTimer = new BSTaskTimer("TBSUpdate");
     
-    private BSTimerTask mTileBufferUpdateTimerTask;
-	private BSTimerTask mBackingStoreUpdateTimerTask;
-
 	public TiledBackingStore(TiledBackingStoreClient client, ITiledBackingStoreBackend backend, TextureBuffer textureBuffer) {
 		mClient = client;
 		mBackend = backend;
 		mTextureBuffer = textureBuffer;
+		mMainTiles = new TileBuffer(mTextureBuffer, mContentsScale);
+		mScaleBufferTiles = new TileBuffer(mTextureBuffer, mContentsScale);
 	}
 
 	public TiledBackingStoreClient getClient() {
@@ -88,13 +87,13 @@ public class TiledBackingStore {
 		mPendingTrajectoryVector.normalize();
     }
     
-	public void coverWithTilesIfNeeded() {
+	public void coverWithTilesIfNeeded(BSTimerTask task) {
 		Rect visibleRect = visibleRect();
 		Rect rect = mapFromContents(mClient.tbsGetContentsRect());
 
 		boolean didChange = !mTrajectoryVector.equals(mPendingTrajectoryVector) || !mVisibleRect.equals(visibleRect) || !mRect.equals(rect);
 		if (didChange || mPendingTileCreation)
-			createTiles();
+			createTiles(task);
     }
 
 	public float getContentsScale() {
@@ -111,7 +110,7 @@ public class TiledBackingStore {
 	    if (mContentsFrozen)
 	        return;
 	    
-	    commitScaleChange();
+	    startCommitScaleChangeTask();
 	}
 
 	public boolean isContentsFrozen() {
@@ -130,22 +129,23 @@ public class TiledBackingStore {
 	    if (mContentsFrozen)
 	        return;
 	    if (mPendingScale != 0)
-	        commitScaleChange();
+	        startCommitScaleChangeTask();
 	    else {
-	        startBackingStoreUpdateTimer();
-	        startTileBufferUpdateTimer();
+	        startBSUpdateTask();
+	        startTileBufferUpdateTask();
 	    }
 	}
 
-	private void updateTileBuffers() {
+	private void updateTileBuffers(BSTimerTask task) {
 		if (mContentsFrozen)
 	        return;
 
+		mUpdateFlowBreaked = false;
 	    mClient.tbsPaintBegin();
 
 	    List<Rect> paintedArea = new ArrayList<Rect>();
 	    List<ITile> dirtyTiles = new ArrayList<ITile>();
-	    Iterator<Entry<Coordinate, ITile>> it = mMainTiles.entrySet().iterator();
+	    Iterator<Entry<Coordinate, ITile>> it = mMainTiles.iterator();
 	    while (it.hasNext()) {
 	    	Entry<Coordinate, ITile> entry = it.next();
 	        if (!entry.getValue().isDirty())
@@ -169,9 +169,13 @@ public class TiledBackingStore {
 	        try {
 				Thread.sleep(500);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+	        
+	        if (task != null && task.cancelled()) {
+	        	mUpdateFlowBreaked = true;
+	        	break;
+	        }
 	    }
 
 	    mClient.tbsPaintEnd(paintedArea);
@@ -198,19 +202,52 @@ public class TiledBackingStore {
 	        }
 	    }
 
-	    startTileBufferUpdateTimer();
+	    startTileBufferUpdateTask();
 	}
     
     public void paint(GLCanvas canvas, int offsetX, int offsetY, final Rect rect) {
-        Rect dirtyRect = mapFromContents(rect);
-
+    	Iterator<Entry<Coordinate, ITile>> it = mScaleBufferTiles.iterator();
+    	while (it.hasNext()) {
+    		Entry<Coordinate, ITile> entry = it.next();
+    		ITile currentTile = entry.getValue();
+    		if (currentTile != null && currentTile.isReadyToPaint()) {
+    			float scale = mPendingScale == 0 ? mContentsScale : mPendingScale;
+                currentTile.paint(canvas, offsetX, offsetY, null, scale / mScaleBufferTiles.getScale());
+            }
+    	}
+        Rect dirtyRect = mapFromContents(rect, mScaleBufferTiles.getScale());
         Coordinate topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
         Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.getRight(), dirtyRect.getBottom());
-
+        for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
+	            for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
+	                Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
+	                ITile currentTile = mScaleBufferTiles.get(currentCoordinate);
+		            if (currentTile != null && currentTile.isReadyToPaint()) {
+		                currentTile.paint(canvas, offsetX, offsetY, dirtyRect, mPendingScale / mScaleBufferTiles.getScale());
+		            } else {
+		                Rect tileRect = tileRectForCoordinate(currentCoordinate);
+		                Rect target = Rect.intersect(tileRect, dirtyRect);
+		                if (target == null || target.isEmpty())
+		                    continue;
+		                
+//		                float scaleFactor = mOldScale == 0 ? 1 : mContentsScale / mOldScale;
+//		                float left = offsetX + target.getLeft() * scaleFactor;
+//		                float top = offsetY + target.getTop() * scaleFactor;
+//		                float width = target.getWidth() * scaleFactor;
+//		                float height = target.getHeight() * scaleFactor;
+		//                    canvas.drawTexture(mTextureBuffer.getCheckerTextureID(canvas.getGL(), (int)width, (int)height), left, top, width, height);
+		            }
+	            
+	        }
+        }
+        
+        dirtyRect = mapFromContents(rect);
+        topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
+        bottomRight = tileCoordinateForPoint(dirtyRect.getRight(), dirtyRect.getBottom());
         for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
             for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
                 Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
-                ITile currentTile = getTileAt(currentCoordinate);
+                ITile currentTile = mMainTiles.get(currentCoordinate);
                 if (currentTile != null && currentTile.isReadyToPaint()) {
                 	float scaleFactor = mPendingScale == 0 ? 1 : mPendingScale / mContentsScale;
                     currentTile.paint(canvas, offsetX, offsetY, dirtyRect, scaleFactor);
@@ -225,7 +262,7 @@ public class TiledBackingStore {
                     float top = offsetY + target.getTop() * scaleFactor;
                     float width = target.getWidth() * scaleFactor;
                     float height = target.getHeight() * scaleFactor;
-                    canvas.drawTexture(mTextureBuffer.getCheckerTextureID(canvas.getGL(), (int)width, (int)height), left, top, width, height);
+//                    canvas.drawTexture(mTextureBuffer.getCheckerTextureID(canvas.getGL(), (int)width, (int)height), left, top, width, height);
                 }
             }
         }
@@ -241,7 +278,7 @@ public class TiledBackingStore {
     	
     	sz.copyTo(mTileSize);
 	    mMainTiles.clear();
-	    startBackingStoreUpdateTimer();
+	    startBSUpdateTask();
     }
 
     public Rect mapToContents(final Rect rect) {
@@ -328,47 +365,33 @@ public class TiledBackingStore {
 	    invalidate(mRect);
     }
 
-    private void startTileBufferUpdateTimer() {
-    	Log.d("dd", "DDDDDDDDDDDDDDDDDDDdd_1_begin");
+    private void startTileBufferUpdateTask() {
     	if (!mCommitTileUpdatesOnIdleEventLoop)
             return;
 
-        if ((mTileBufferUpdateTimerTask != null && mTileBufferUpdateTimerTask.isActive()) || isTileBufferUpdatesSuspended())
+        if (isTileBufferUpdatesSuspended())
             return;
         
-        mTileBufferUpdateTimerTask = new BSBufferUpdateTimerTask();
-        Log.d("dd", "DDDDDDDDDDDDDDDDDDDdd_1_execute");
-        mTileBufferUpdateTimer.schedule(mTileBufferUpdateTimerTask, 0);
+        mUpdateTimer.cancelAllTasks();
+        mUpdateTimer.scheduleTask(new BufferUpdateTask(), 0);
     }
     
-    private void startBackingStoreUpdateTimer() {
-    	startBackingStoreUpdateTimer(0);
+    private void startBSUpdateTask() {
+    	startBSUpdateTask(0);
     }
 
-    private void startBackingStoreUpdateTimer(long interval) {
-        Log.d("dd", "DDDDDDDDDDDDDDDDDDDdd_2_begin");
+    private void startBSUpdateTask(long interval) {
     	if (!mCommitTileUpdatesOnIdleEventLoop)
             return;
 
-        if ((mBackingStoreUpdateTimerTask != null && mBackingStoreUpdateTimerTask.isActive()) || isBackingStoreUpdatesSuspended())
+        if (isBackingStoreUpdatesSuspended())
             return;
 
-        mBackingStoreUpdateTimerTask = new BSBackingStoreUpdateTimerTask();
-        Log.d("dd", "DDDDDDDDDDDDDDDDDDDdd_2_execute");
-        mBackingStoreUpdateTimer.schedule(mBackingStoreUpdateTimerTask, interval);
+        mUpdateTimer.cancelAllTasks();
+        mUpdateTimer.scheduleTask(new BSUpdateTimerTask(), interval);
     }
 
-    void tileBufferUpdateTimerFired() {
-    	assert(mCommitTileUpdatesOnIdleEventLoop);
-        updateTileBuffers();
-    }
-    
-    void backingStoreUpdateTimerFired() {
-    	assert(mCommitTileUpdatesOnIdleEventLoop);
-	    createTiles();
-    }
-
-    private void createTiles() {
+    private void createTiles(BSTimerTask task) {
     	// Guard here as as these can change before the timer fires.
         if (isBackingStoreUpdatesSuspended())
             return;
@@ -459,7 +482,7 @@ public class TiledBackingStore {
 
         // Paint the content of the newly created tiles or resized tiles.
         if (tilesToCreateCount != 0 || didResizeTiles)
-            updateTileBuffers();
+            updateTileBuffers(task);
 
         // Re-call createTiles on a timer to cover the visible area with the newest shortest distance.
         mPendingTileCreation = requiredTileCount != 0;
@@ -469,7 +492,7 @@ public class TiledBackingStore {
                 return;
             }
 
-            startBackingStoreUpdateTimer(TILE_CREATION_DELAY_MS);
+            startBSUpdateTask(TILE_CREATION_DELAY_MS);
         }
     }
     
@@ -525,18 +548,18 @@ public class TiledBackingStore {
     	return mContentsFrozen;
     }
 
-    private void commitScaleChange() {
-    	mOldScale = mContentsScale;
-    	mContentsScale = mPendingScale;
-	    mPendingScale = 0;
-//	    mTiles.clear(); // TODO why clear all? 
-	    coverWithTilesIfNeeded();
+    private void startCommitScaleChangeTask() {
+    	 if (isBackingStoreUpdatesSuspended())
+             return;
+
+    	 mUpdateTimer.cancelAllTasks();
+         mUpdateTimer.scheduleTask(new CommitScaleChangeTask(), 0);
     }
 
     private boolean resizeEdgeTiles() {
     	boolean wasResized = false;
     	List<Coordinate> tilesToRemove = new ArrayList<Coordinate>();
-	    Iterator<Entry<Coordinate, ITile>> it = mMainTiles.entrySet().iterator();
+	    Iterator<Entry<Coordinate, ITile>> it = mMainTiles.iterator();
 	    while (it.hasNext()) {
 	    	Entry<Coordinate, ITile> entry = it.next();
 	        Coordinate tileCoordinate = entry.getValue().coordinate();
@@ -563,7 +586,7 @@ public class TiledBackingStore {
         RectF keepRectF = keepRect.toRectF();
 
         List<Coordinate> toRemove = new ArrayList<Coordinate>();;
-        Iterator<Entry<Coordinate, ITile>> it = mMainTiles.entrySet().iterator();
+        Iterator<Entry<Coordinate, ITile>> it = mMainTiles.iterator();
         while (it.hasNext()) {
         	Entry<Coordinate, ITile> entry = it.next();
             Coordinate coordinate = entry.getValue().coordinate();
@@ -578,10 +601,6 @@ public class TiledBackingStore {
         keepRect.copyTo(mKeepRect);
     }
 
-    private ITile getTileAt(final Coordinate coordinate) {
-    	return mMainTiles.get(coordinate);
-    }
-    
     private ITile getTileAt(int x, int y) {
     	return mMainTiles.get(new Coordinate(x, y)); // TODO effective problem
     }
@@ -657,38 +676,36 @@ public class TiledBackingStore {
         rect.intersect(bounds);
     }
 
-    private abstract class BSTimerTask extends TimerTask {
-
-    	private volatile boolean mActive = false;
-    	
-    	@Override
-    	public void run() {
-    		mActive = true;
-    		
-    		runTask();
-    		
-    		mActive = false;
-    	}
-    	
-    	public abstract void runTask();
-    	
-		public boolean isActive() {
-			return mActive;
-		}
-    	
-    }
-    
-    private class BSBufferUpdateTimerTask extends BSTimerTask {
+    private class BufferUpdateTask extends BSTimerTask {
 		@Override
 		public void runTask() {
-			tileBufferUpdateTimerFired();
+			updateTileBuffers(this);
 		}
 	};
 	
-    private class BSBackingStoreUpdateTimerTask extends BSTimerTask {
+    private class BSUpdateTimerTask extends BSTimerTask {
 		@Override
 		public void runTask() {
-			backingStoreUpdateTimerFired();
+			createTiles(this);
 		}
 	};
+	
+	private class CommitScaleChangeTask extends BSTimerTask {
+		@Override
+		public void runTask() {
+			float oldScale = mContentsScale;
+	    	mContentsScale = mPendingScale;
+		    mPendingScale = 0;
+		    if (mUpdateFlowBreaked) {
+		    	mMainTiles.clear();
+		    } else {
+		    	Log.d("tt", "ttt ");
+		    	mScaleBufferTiles.setScale(oldScale);
+			    mScaleBufferTiles.clear();
+			    mMainTiles.moveAllTo(mScaleBufferTiles);
+		    }
+		    
+		    coverWithTilesIfNeeded(this);
+	    }
+	}
 }
