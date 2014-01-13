@@ -4,6 +4,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import android.util.Log;
+
 public class BSTaskTimer {
 	private Timer mTimer;
 	private LinkedBlockingQueue<BSTimerTask> mTasks = new LinkedBlockingQueue<BSTimerTask>();
@@ -13,13 +15,16 @@ public class BSTaskTimer {
 	}
 	
 	public void scheduleTask(BSTimerTask task, long delay) {
+		task.mTimer = this;
 		mTimer.schedule(task, delay);
 		mTasks.add(task);
 	}
 	
 	public int cancelAllTasks() {
 		BSTimerTask task;
+		Log.d("tt", "cancelAllTasks count " + mTasks.size());
 		while ((task = mTasks.poll()) != null) {
+			Log.d("tt", "cancel task " + task.hashCode());
 			task.cancel();
 		}
 		
@@ -30,7 +35,11 @@ public class BSTaskTimer {
 
     	private volatile boolean mActive = false;
 		private volatile boolean mCancelled = false;
+    	private BSTaskTimer mTimer;
     	
+		public BSTimerTask() {
+		}
+		
     	@Override
     	public void run() {
     		mActive = true;
@@ -38,6 +47,9 @@ public class BSTaskTimer {
     		runTask();
     		
     		mActive = false;
+    		
+    		if (mTimer != null)
+    			mTimer.mTasks.remove(this);
     	}
     	
     	public abstract void runTask();
@@ -52,9 +64,14 @@ public class BSTaskTimer {
     	
 		@Override
 		public boolean cancel() {
-			mCancelled  = true;
+			if (!mCancelled) {
+				mCancelled  = true;
+				super.cancel();
+				
+				return mCancelled;
+			}
 			
-			return super.cancel();
+			return mCancelled;
 		}
     }
 }

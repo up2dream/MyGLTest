@@ -58,7 +58,7 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 	}
 	
 	public void setWidth(int width) {
-		mWidth = width;
+		setSize(width, mHeight);
 	}
 	
 	public int getHeight() {
@@ -66,7 +66,7 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 	}
 	
 	public void setHeight(int height) {
-		mHeight = height;
+		setSize(mWidth, height);
 	}
 	
 	public void setPosition(int x, int y) {
@@ -77,6 +77,7 @@ public class RenderLayerPh_GL extends TiledBackingStoreClient {
 	public void setSize(int width, int height) {
 		mWidth = width;
 		mHeight = height;
+		
 		float scaleW = mWidth / (float)mContentsRect.getWidth();
 		float scaleH = mHeight / (float)mContentsRect.getHeight();
 		if (scaleW > scaleH) {

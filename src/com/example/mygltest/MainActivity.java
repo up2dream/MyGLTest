@@ -157,7 +157,7 @@ public class MainActivity extends Activity {
 			oldDist = spacing(event);//两点按下时的距离  
 			mGLSurfaceView.getRenderLayer().setContentsFrozen(true);
 			break;
-		case MotionEvent.ACTION_UP:
+		case MotionEvent.ACTION_POINTER_UP:
 			mGLSurfaceView.getRenderLayer().setContentsFrozen(false);
 			break;
 		}

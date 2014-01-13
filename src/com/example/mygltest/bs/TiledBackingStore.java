@@ -372,6 +372,7 @@ public class TiledBackingStore {
         if (isTileBufferUpdatesSuspended())
             return;
         
+        Log.d("tt", "Tile Update scheduleTask scale " + mContentsScale + " pending scale " + mPendingScale);
         mUpdateTimer.cancelAllTasks();
         mUpdateTimer.scheduleTask(new BufferUpdateTask(), 0);
     }
@@ -387,6 +388,7 @@ public class TiledBackingStore {
         if (isBackingStoreUpdatesSuspended())
             return;
 
+        Log.d("tt", "BSUpdate scheduleTask scale " + mContentsScale + " pending scale " + mPendingScale + " interval " + interval);
         mUpdateTimer.cancelAllTasks();
         mUpdateTimer.scheduleTask(new BSUpdateTimerTask(), interval);
     }
@@ -492,7 +494,9 @@ public class TiledBackingStore {
                 return;
             }
 
-            startBSUpdateTask(TILE_CREATION_DELAY_MS);
+            Log.d("tt", "start BSUpdate scheduleTask in createTiles func scale " + mContentsScale + " pending scale " + mPendingScale);
+            if (task == null || !task.cancelled())
+            	startBSUpdateTask(TILE_CREATION_DELAY_MS);
         }
     }
     
@@ -549,11 +553,13 @@ public class TiledBackingStore {
     }
 
     private void startCommitScaleChangeTask() {
-    	 if (isBackingStoreUpdatesSuspended())
+    	if (isBackingStoreUpdatesSuspended())
              return;
 
-    	 mUpdateTimer.cancelAllTasks();
-         mUpdateTimer.scheduleTask(new CommitScaleChangeTask(), 0);
+        CommitScaleChangeTask task = new CommitScaleChangeTask();
+        Log.d("tt", "CommitScale scheduleTask " + task.hashCode() + " " + mContentsScale + " pending scale " + mPendingScale);
+    	mUpdateTimer.cancelAllTasks();
+		mUpdateTimer.scheduleTask(task, 0);
     }
 
     private boolean resizeEdgeTiles() {
@@ -696,10 +702,10 @@ public class TiledBackingStore {
 			float oldScale = mContentsScale;
 	    	mContentsScale = mPendingScale;
 		    mPendingScale = 0;
+	    	Log.d("tt", "Scale task run (break " + mUpdateFlowBreaked + ") " + this.hashCode());
 		    if (mUpdateFlowBreaked) {
 		    	mMainTiles.clear();
 		    } else {
-		    	Log.d("tt", "ttt ");
 		    	mScaleBufferTiles.setScale(oldScale);
 			    mScaleBufferTiles.clear();
 			    mMainTiles.moveAllTo(mScaleBufferTiles);
