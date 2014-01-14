@@ -206,40 +206,42 @@ public class TiledBackingStore {
 	}
     
     public void paint(GLCanvas canvas, int offsetX, int offsetY, final Rect rect) {
-    	Iterator<Entry<Coordinate, ITile>> it = mScaleBufferTiles.iterator();
-    	while (it.hasNext()) {
-    		Entry<Coordinate, ITile> entry = it.next();
-    		ITile currentTile = entry.getValue();
-    		if (currentTile != null && currentTile.isReadyToPaint()) {
-    			float scale = mPendingScale == 0 ? mContentsScale : mPendingScale;
-                currentTile.paint(canvas, offsetX, offsetY, null, scale / mScaleBufferTiles.getScale());
-            }
-    	}
+    	synchronized (mScaleBufferTiles) {
+        	Iterator<Entry<Coordinate, ITile>> it = mScaleBufferTiles.iterator();
+        	while (it.hasNext()) {
+        		Entry<Coordinate, ITile> entry = it.next();
+        		ITile currentTile = entry.getValue();
+        		if (currentTile != null && currentTile.isReadyToPaint()) {
+        			float scale = mPendingScale == 0 ? mContentsScale : mPendingScale;
+                    currentTile.paint(canvas, offsetX, offsetY, null, scale / mScaleBufferTiles.getScale());
+                }
+        	}
+		}
         Rect dirtyRect = mapFromContents(rect, mScaleBufferTiles.getScale());
         Coordinate topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
         Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.getRight(), dirtyRect.getBottom());
-        for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
-	            for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
-	                Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
-	                ITile currentTile = mScaleBufferTiles.get(currentCoordinate);
-		            if (currentTile != null && currentTile.isReadyToPaint()) {
-		                currentTile.paint(canvas, offsetX, offsetY, dirtyRect, mPendingScale / mScaleBufferTiles.getScale());
-		            } else {
-		                Rect tileRect = tileRectForCoordinate(currentCoordinate);
-		                Rect target = Rect.intersect(tileRect, dirtyRect);
-		                if (target == null || target.isEmpty())
-		                    continue;
-		                
-//		                float scaleFactor = mOldScale == 0 ? 1 : mContentsScale / mOldScale;
-//		                float left = offsetX + target.getLeft() * scaleFactor;
-//		                float top = offsetY + target.getTop() * scaleFactor;
-//		                float width = target.getWidth() * scaleFactor;
-//		                float height = target.getHeight() * scaleFactor;
-		//                    canvas.drawTexture(mTextureBuffer.getCheckerTextureID(canvas.getGL(), (int)width, (int)height), left, top, width, height);
-		            }
-	            
-	        }
-        }
+//        for (int yCoordinate = topLeft.getY(); yCoordinate <= bottomRight.getY(); ++yCoordinate) {
+//	            for (int xCoordinate = topLeft.getX(); xCoordinate <= bottomRight.getX(); ++xCoordinate) {
+//	                Coordinate currentCoordinate = new Coordinate(xCoordinate, yCoordinate);
+//	                ITile currentTile = mScaleBufferTiles.get(currentCoordinate);
+//		            if (currentTile != null && currentTile.isReadyToPaint()) {
+//		                currentTile.paint(canvas, offsetX, offsetY, dirtyRect, mPendingScale / mScaleBufferTiles.getScale());
+//		            } else {
+//		                Rect tileRect = tileRectForCoordinate(currentCoordinate);
+//		                Rect target = Rect.intersect(tileRect, dirtyRect);
+//		                if (target == null || target.isEmpty())
+//		                    continue;
+//		                
+////		                float scaleFactor = mOldScale == 0 ? 1 : mContentsScale / mOldScale;
+////		                float left = offsetX + target.getLeft() * scaleFactor;
+////		                float top = offsetY + target.getTop() * scaleFactor;
+////		                float width = target.getWidth() * scaleFactor;
+////		                float height = target.getHeight() * scaleFactor;
+//		//                    canvas.drawTexture(mTextureBuffer.getCheckerTextureID(canvas.getGL(), (int)width, (int)height), left, top, width, height);
+//		            }
+//	            
+//	        }
+//        }
         
         dirtyRect = mapFromContents(rect);
         topLeft = tileCoordinateForPoint(dirtyRect.getLeft(), dirtyRect.getTop());
@@ -706,9 +708,11 @@ public class TiledBackingStore {
 		    if (mUpdateFlowBreaked) {
 		    	mMainTiles.clear();
 		    } else {
-		    	mScaleBufferTiles.setScale(oldScale);
-			    mScaleBufferTiles.clear();
-			    mMainTiles.moveAllTo(mScaleBufferTiles);
+		    	synchronized (mScaleBufferTiles) {
+			    	mScaleBufferTiles.setScale(oldScale);
+				    mScaleBufferTiles.clear();
+				    mMainTiles.moveAllTo(mScaleBufferTiles);
+				}
 		    }
 		    
 		    coverWithTilesIfNeeded(this);
